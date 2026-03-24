@@ -1,0 +1,6 @@
+.main-view-container {
+  background-color: var(--background-elevated-base);
+  margin: 24px 0;
+  border-radius: 6px;
+  padding: 24px;
+}

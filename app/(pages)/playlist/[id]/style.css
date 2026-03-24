@@ -1,0 +1,105 @@
+.playlist-content {
+  background-color: var(--background-elevated-base);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.playlist-cover {
+  border-radius: 4px;
+}
+
+.playlist-cover-placeholder {
+  background-color: var(--decorative-subdued);
+}
+
+.playlist-header {
+  padding: 2rem;
+}
+
+.back-link {
+  color: var(--text-subdued);
+}
+
+.playlist-label {
+  color: var(--text-base);
+}
+
+.playlist-title {
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 1.1;
+  color: var(--text-base);
+}
+
+.playlist-description {
+  color: var(--text-subdued);
+}
+
+.playlist-owner {
+  color: var(--text-base);
+}
+
+.playlist-owner-sub {
+  color: var(--text-subdued);
+}
+
+/* Scrollable track table */
+.track-list-wrapper {
+  overflow-x: auto;
+}
+
+.track-grid {
+  grid-template-columns:
+    16px
+    minmax(180px, 1fr)
+    130px
+    140px
+    48px
+    48px
+    52px
+    48px
+    48px
+    48px
+    48px
+    48px
+    52px
+    44px
+    52px
+    56px;
+}
+
+.track-grid-header {
+  color: var(--text-subdued);
+  border-color: #ffffff1a;
+  display: grid;
+}
+
+.track-grid-row {
+  align-items: center;
+  display: grid;
+}
+
+.track-number {
+  color: var(--text-subdued);
+}
+
+.track-name {
+  color: var(--text-base);
+}
+
+.track-artist {
+  color: var(--text-subdued);
+}
+
+.track-album {
+  color: var(--text-subdued);
+}
+
+.track-duration {
+  color: var(--text-subdued);
+}
+
+.track-meta {
+  color: var(--text-subdued);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
