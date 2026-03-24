@@ -4,3 +4,255 @@
   border-radius: 6px;
   padding: 24px;
 }
+
+/* ── View toggle ── */
+
+.view-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-subdued);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-base);
+  background-color: var(--background-tinted-base);
+}
+
+.view-toggle-btn--active {
+  color: var(--text-base);
+}
+
+/* ── Playlist item wrapper ── */
+
+.playlist-item-wrapper {
+  position: relative;
+}
+
+/* Show group button on hover in grid view */
+.playlist-item-wrapper--grid .group-btn {
+  opacity: 0;
+  transform: scale(0.85);
+}
+
+.playlist-item-wrapper--grid:hover .group-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Always visible in list view */
+.playlist-item-wrapper--list .group-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Group assignment button ── */
+
+.group-btn-wrapper {
+  position: absolute;
+  z-index: 10;
+}
+
+.playlist-item-wrapper--grid .group-btn-wrapper {
+  top: 8px;
+  right: 8px;
+}
+
+.playlist-item-wrapper--list .group-btn-wrapper {
+  top: 50%;
+  right: 48px;
+  transform: translateY(-50%);
+}
+
+.group-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: var(--text-subdued);
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.group-btn:hover {
+  color: var(--text-base);
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* ── Group assignment popover ── */
+
+.group-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 180px;
+  background-color: var(--background-elevated-highlight);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+}
+
+.group-popover__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-base);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.1s ease;
+}
+
+.group-popover__item:hover {
+  background-color: var(--background-tinted-base);
+}
+
+.group-popover__item--remove {
+  color: var(--text-subdued);
+}
+
+.group-popover__item--new {
+  color: var(--text-subdued);
+}
+
+.group-popover__item--new:hover {
+  color: var(--text-base);
+}
+
+.group-popover__divider {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.08);
+  margin: 4px 0;
+}
+
+.group-popover__form {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+}
+
+.group-popover__input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: var(--background-base);
+  color: var(--text-base);
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.group-popover__input:focus {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.group-popover__confirm {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: none;
+  background-color: var(--text-bright-accent);
+  color: #000;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.group-popover__confirm:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Group section ── */
+
+.playlist-group {
+  margin-bottom: 32px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.group-header__name {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+  cursor: default;
+}
+
+.group-header__name:hover {
+  color: var(--text-base);
+}
+
+.group-header__count {
+  font-size: 0.75rem;
+  color: var(--text-subdued);
+  margin-right: 4px;
+}
+
+.group-header__input {
+  flex: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: var(--background-base);
+  color: var(--text-base);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  outline: none;
+}
+
+.group-header__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-subdued);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.group-header:hover .group-header__btn {
+  opacity: 1;
+}
+
+.group-header__btn:hover {
+  color: var(--text-base);
+}
+
+.group-header__btn--delete:hover {
+  color: #e25f5f;
+}
