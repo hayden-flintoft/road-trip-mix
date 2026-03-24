@@ -1,15 +1,10 @@
 export type AudioFeatures = {
-  acousticness: number;
-  danceability: number;
-  energy: number;
-  instrumentalness: number;
-  key: number;
-  liveness: number;
-  loudness: number;
-  mode: number;
-  speechiness: number;
   tempo: number;
-  valence: number;
+  key_of: string;
+  open_key: string;
+  time_sig: string;
+  danceability: number; // 0-100
+  acousticness: number; // 0-100
 };
 
 export type EnrichedTrack = {

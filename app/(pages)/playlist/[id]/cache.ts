@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
 import type { AudioFeatures } from "./types";
 
-const RECCOBEATS_BASE = "https://api.reccobeats.com";
+const GETSONGBPM_BASE = "https://api.getsong.co";
 
 async function getClientToken(): Promise<string> {
   const res = await fetch("https://accounts.spotify.com/api/token", {
@@ -53,68 +53,31 @@ export const getCachedArtistGenres = unstable_cache(
   { revalidate: 60 * 60 * 24 * 7 }
 );
 
-// Resolves Spotify track IDs → ReccoBeats UUIDs in batches of 100
-async function resolveReccoBeatsIds(
-  spotifyIds: string[]
-): Promise<Record<string, string>> {
-  const result: Record<string, string> = {};
-  const chunks: string[][] = [];
-  for (let i = 0; i < spotifyIds.length; i += 100)
-    chunks.push(spotifyIds.slice(i, i + 100));
-
-  await Promise.all(
-    chunks.map(async (chunk) => {
-      const res = await fetch(
-        `${RECCOBEATS_BASE}/v1/track?ids=${chunk.join(",")}`,
-        { cache: "no-store" }
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      for (const track of data.content ?? []) {
-        if (!track?.id || !track?.href) continue;
-        // href is a Spotify URL: https://open.spotify.com/track/SPOTIFY_ID
-        const spotifyId = track.href.split("/").pop()?.split("?")[0];
-        if (spotifyId) result[spotifyId] = track.id;
-      }
-    })
-  );
-  return result;
-}
-
-// Spotify ID → ReccoBeats UUID is an immutable mapping — 30-day cache
-export const getCachedReccoBeatsIds = unstable_cache(
-  async (sortedSpotifyIds: string[]) => resolveReccoBeatsIds(sortedSpotifyIds),
-  ["reccobeats-track-ids"],
-  { revalidate: 60 * 60 * 24 * 30 }
-);
-
-async function fetchAudioFeatures(
-  reccoBeatsId: string
+async function fetchSongBpm(
+  trackName: string,
+  artistName: string
 ): Promise<AudioFeatures | null> {
-  const res = await fetch(
-    `${RECCOBEATS_BASE}/v1/track/${reccoBeatsId}/audio-features`,
-    { cache: "no-store" }
-  );
+  const lookup = `song:${encodeURIComponent(trackName)}+artist:${encodeURIComponent(artistName)}`;
+  const url = `${GETSONGBPM_BASE}/search/?api_key=${process.env.GETSONGBPM_API_KEY}&type=both&lookup=${lookup}`;
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) return null;
   const data = await res.json();
+  const song = data.search?.[0];
+  if (!song) return null;
   return {
-    acousticness: data.acousticness,
-    danceability: data.danceability,
-    energy: data.energy,
-    instrumentalness: data.instrumentalness,
-    key: data.key,
-    liveness: data.liveness,
-    loudness: data.loudness,
-    mode: data.mode,
-    speechiness: data.speechiness,
-    tempo: data.tempo,
-    valence: data.valence,
+    tempo: parseInt(song.tempo, 10),
+    key_of: song.key_of ?? "—",
+    open_key: song.open_key ?? "—",
+    time_sig: song.time_sig ?? "—",
+    danceability: song.danceability ?? 0,
+    acousticness: song.acousticness ?? 0,
   };
 }
 
-// Audio features are immutable per track — 30-day cache per ReccoBeats UUID
-export const getCachedAudioFeatures = unstable_cache(
-  async (reccoBeatsId: string) => fetchAudioFeatures(reccoBeatsId),
-  ["reccobeats-audio-features"],
+// Song BPM/key data is immutable — 30-day cache per track name + artist
+export const getCachedSongBpm = unstable_cache(
+  async (trackName: string, artistName: string) =>
+    fetchSongBpm(trackName, artistName),
+  ["getsongbpm-features"],
   { revalidate: 60 * 60 * 24 * 30 }
 );

@@ -8,12 +8,6 @@ function formatDuration(ms: number) {
   return `${m}:${s}`;
 }
 
-const KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-function fmt(n: number | undefined | null, decimals = 2) {
-  if (n == null) return "—";
-  return n.toFixed(decimals);
-}
 
 type Props = {
   track: EnrichedTrack;
@@ -49,17 +43,12 @@ export default function TrackRow({ track, index }: Props) {
         {track.genres.length > 0 ? track.genres.join(", ") : "—"}
       </p>
 
-      <span className="track-meta">{track.audioFeatures ? Math.round(track.audioFeatures.tempo) : "—"}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.energy)}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.danceability)}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.valence)}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.acousticness)}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.instrumentalness)}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.liveness)}</span>
-      <span className="track-meta">{fmt(track.audioFeatures?.speechiness)}</span>
-      <span className="track-meta">{track.audioFeatures ? `${track.audioFeatures.loudness.toFixed(1)}` : "—"}</span>
-      <span className="track-meta">{track.audioFeatures ? (track.audioFeatures.key >= 0 ? KEY_NAMES[track.audioFeatures.key] : "—") : "—"}</span>
-      <span className="track-meta">{track.audioFeatures ? (track.audioFeatures.mode === 1 ? "Maj" : "Min") : "—"}</span>
+      <span className="track-meta">{track.audioFeatures ? track.audioFeatures.tempo : "—"}</span>
+      <span className="track-meta">{track.audioFeatures?.key_of ?? "—"}</span>
+      <span className="track-meta">{track.audioFeatures?.open_key ?? "—"}</span>
+      <span className="track-meta">{track.audioFeatures?.time_sig ?? "—"}</span>
+      <span className="track-meta">{track.audioFeatures ? track.audioFeatures.danceability : "—"}</span>
+      <span className="track-meta">{track.audioFeatures ? track.audioFeatures.acousticness : "—"}</span>
 
       <span className="track-duration track-meta">{formatDuration(track.duration_ms)}</span>
     </div>

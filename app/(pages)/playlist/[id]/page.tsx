@@ -30,16 +30,11 @@ export default async function PlaylistPage({ params }: { params: { id: string } 
               <span>Album</span>
               <span>Genres</span>
               <span title="Beats per minute">BPM</span>
-              <span title="Energy">Nrg</span>
-              <span title="Danceability">Dance</span>
-              <span title="Valence (positivity)">Val</span>
-              <span title="Acousticness">Acou</span>
-              <span title="Instrumentalness">Inst</span>
-              <span title="Liveness">Live</span>
-              <span title="Speechiness">Spch</span>
-              <span title="Loudness (dB)">dB</span>
               <span title="Musical key">Key</span>
-              <span title="Mode (Major/Minor)">Mode</span>
+              <span title="Open key (Traktor)">Open</span>
+              <span title="Time signature">Time</span>
+              <span title="Danceability (0–100)">Dance</span>
+              <span title="Acousticness (0–100)">Acou</span>
               <span>⏱</span>
             </div>
 

@@ -1,5 +1,5 @@
 import type { AudioFeatures, EnrichedTrack, PlaylistMeta, TrackItem } from "./types";
-import { getCachedArtistGenres, getCachedAudioFeatures, getCachedReccoBeatsIds } from "./cache";
+import { getCachedArtistGenres, getCachedSongBpm } from "./cache";
 
 export async function getPlaylistMeta(
   accessToken: string,
@@ -67,21 +67,18 @@ export async function getEnrichedTracks(
     new Set(tracks.flatMap((t) => t.artists.map((a) => a.id)))
   ).sort();
 
-  const spotifyTrackIds = Array.from(new Set(tracks.map((t) => t.id))).sort();
-
-  const [artistGenresMap, reccoBeatsIdMap] = await Promise.all([
+  const [artistGenresMap, audioFeaturesEntries] = await Promise.all([
     getCachedArtistGenres(artistIds),
-    getCachedReccoBeatsIds(spotifyTrackIds),
+    Promise.all(
+      tracks.map(async (track): Promise<[string, AudioFeatures | null]> => {
+        const features = await getCachedSongBpm(
+          track.name,
+          track.artists[0]?.name ?? ""
+        );
+        return [track.id, features];
+      })
+    ),
   ]);
-
-  const audioFeaturesEntries = await Promise.all(
-    tracks.map(async (track): Promise<[string, AudioFeatures | null]> => {
-      const reccoId = reccoBeatsIdMap[track.id];
-      if (!reccoId) return [track.id, null];
-      const features = await getCachedAudioFeatures(reccoId);
-      return [track.id, features];
-    })
-  );
   const audioFeaturesMap = Object.fromEntries(audioFeaturesEntries);
 
   return tracks.map((track) => ({
