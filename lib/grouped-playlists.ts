@@ -5,7 +5,15 @@ export type RoundRobinRule = {
   overrides: Record<string, number>; // playlistId → songs per cycle (overrides defaultN)
 };
 
-export type Rule = RoundRobinRule;
+export type SpacingRule = {
+  id: string;
+  type: "spacing";
+  n: number; // minimum tracks between same artist/album
+  applyToArtist: boolean;
+  applyToAlbum: boolean;
+};
+
+export type Rule = RoundRobinRule | SpacingRule;
 
 export type GroupedPlaylist = {
   id: string;

@@ -237,6 +237,32 @@
   padding-top: 16px;
 }
 
+.rule-item__checkboxes {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.rule-item__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-subdued);
+  cursor: pointer;
+}
+
+.rule-item__checkbox-row input {
+  accent-color: var(--text-bright-accent);
+  cursor: pointer;
+}
+
+.rules-modal__add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .rules-modal__add-label {
   font-size: 0.6875rem;
   font-weight: 700;

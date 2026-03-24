@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { GroupedPlaylist, Rule, RoundRobinRule } from "@/lib/grouped-playlists";
+import type { GroupedPlaylist, Rule, RoundRobinRule, SpacingRule } from "@/lib/grouped-playlists";
 import "./style.css";
 
 type Props = {
@@ -100,6 +100,78 @@ function RoundRobinRuleItem({
   );
 }
 
+function SpacingRuleItem({
+  rule,
+  onChange,
+  onDelete,
+  isDragging,
+  isDragOver,
+}: {
+  rule: SpacingRule;
+  onChange: (updated: SpacingRule) => void;
+  onDelete: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
+}) {
+  return (
+    <div className={`rule-item ${isDragging ? "rule-item--dragging" : ""} ${isDragOver ? "rule-item--drag-over" : ""}`}>
+      <div className="rule-item__handle">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+        </svg>
+      </div>
+
+      <div className="rule-item__body">
+        <div className="rule-item__header">
+          <p className="rule-item__title">Avoid repeating artist / album</p>
+          <button className="rule-item__delete" onClick={onDelete} title="Remove rule">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="rule-item__config">
+          <label className="rule-item__label">
+            Minimum tracks between repeats
+            <input
+              type="number"
+              min={1}
+              className="rule-item__input"
+              value={rule.n}
+              onChange={(e) => onChange({ ...rule, n: Math.max(1, parseInt(e.target.value) || 1) })}
+            />
+          </label>
+        </div>
+
+        <div className="rule-item__checkboxes">
+          <label className="rule-item__checkbox-row">
+            <input
+              type="checkbox"
+              checked={rule.applyToArtist}
+              onChange={(e) => onChange({ ...rule, applyToArtist: e.target.checked })}
+            />
+            Apply to artist
+          </label>
+          <label className="rule-item__checkbox-row">
+            <input
+              type="checkbox"
+              checked={rule.applyToAlbum}
+              onChange={(e) => onChange({ ...rule, applyToAlbum: e.target.checked })}
+            />
+            Apply to album
+          </label>
+        </div>
+
+        <p className="rule-item__desc">
+          Moves tracks so the same {[rule.applyToArtist && "artist", rule.applyToAlbum && "album"].filter(Boolean).join(" or ") || "artist or album"} does not appear within {rule.n} track{rule.n !== 1 ? "s" : ""} of itself.
+          If no valid position exists, the track is placed anyway.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }: Props) {
   const [rules, setRules] = useState<Rule[]>(playlist.rules);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -109,6 +181,13 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
     setRules((prev) => [
       ...prev,
       { id: crypto.randomUUID(), type: "round_robin", defaultN: 1, overrides: {} },
+    ]);
+  };
+
+  const addSpacing = () => {
+    setRules((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), type: "spacing", n: 3, applyToArtist: true, applyToAlbum: false },
     ]);
   };
 
@@ -171,6 +250,15 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                       isDragOver={dragOverIndex === i && dragIndex !== i}
                     />
                   )}
+                  {rule.type === "spacing" && (
+                    <SpacingRuleItem
+                      rule={rule}
+                      onChange={(updated) => updateRule(i, updated)}
+                      onDelete={() => deleteRule(i)}
+                      isDragging={dragIndex === i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -180,6 +268,9 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
             <p className="rules-modal__add-label">Add rule</p>
             <button className="rules-modal__add-btn" onClick={addRoundRobin}>
               + Add songs from group in rotation
+            </button>
+            <button className="rules-modal__add-btn" onClick={addSpacing}>
+              + Avoid repeating artist / album within n tracks
             </button>
           </div>
         </div>

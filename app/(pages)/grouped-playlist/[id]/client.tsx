@@ -8,6 +8,7 @@ import {
   saveGroupedPlaylists,
   type GroupedPlaylist,
   type Rule,
+  type SpacingRule,
 } from "@/lib/grouped-playlists";
 import { getPlaylistTracksClient, getPlaylistNames, type SimplifiedTrack } from "@/lib/spotify";
 import RulesModal from "@/app/components/RulesModal";
@@ -19,6 +20,34 @@ function formatDuration(ms: number) {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000).toString().padStart(2, "0");
   return `${m}:${s}`;
+}
+
+function applySpacing(tracks: SimplifiedTrack[], rule: SpacingRule): SimplifiedTrack[] {
+  const result: SimplifiedTrack[] = [];
+  const remaining = [...tracks];
+
+  while (remaining.length > 0) {
+    const recent = result.slice(-rule.n);
+    const recentArtists = new Set(recent.flatMap((t) => t.artists.map((a) => a.name)));
+    const recentAlbums = new Set(recent.map((t) => t.album.name));
+
+    let placed = false;
+    for (let i = 0; i < remaining.length; i++) {
+      const track = remaining[i];
+      const artistConflict = rule.applyToArtist && track.artists.some((a) => recentArtists.has(a.name));
+      const albumConflict = rule.applyToAlbum && recentAlbums.has(track.album.name);
+      if (!artistConflict && !albumConflict) {
+        result.push(...remaining.splice(i, 1));
+        placed = true;
+        break;
+      }
+    }
+
+    // No conflict-free track available — place the first remaining track anyway
+    if (!placed) result.push(remaining.shift()!);
+  }
+
+  return result;
 }
 
 function applyRoundRobin(
@@ -99,7 +128,11 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
           tracks: await getPlaylistTracksClient(session.accessToken!, pid),
         }))
       );
-      setGenerated(applyRoundRobin(tracksByPlaylist, playlist.rules));
+      let result = applyRoundRobin(tracksByPlaylist, playlist.rules);
+      for (const rule of playlist.rules) {
+        if (rule.type === "spacing") result = applySpacing(result, rule);
+      }
+      setGenerated(result);
     } finally {
       setGenerating(false);
     }
