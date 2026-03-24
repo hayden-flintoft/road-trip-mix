@@ -9,7 +9,7 @@ import {
   type GroupedPlaylist,
   type Rule,
 } from "@/lib/grouped-playlists";
-import { getPlaylistTracksClient, type SimplifiedTrack } from "@/lib/spotify";
+import { getPlaylistTracksClient, getPlaylistNames, type SimplifiedTrack } from "@/lib/spotify";
 import RulesModal from "@/app/components/RulesModal";
 import "../../playlist/[id]/style.css";
 
@@ -22,22 +22,22 @@ function formatDuration(ms: number) {
 }
 
 function applyRoundRobin(
-  tracksByPlaylist: SimplifiedTrack[][],
+  tracksByPlaylist: { playlistId: string; tracks: SimplifiedTrack[] }[],
   rules: Rule[]
 ): SimplifiedTrack[] {
   if (rules.length === 0 || tracksByPlaylist.length === 0) return [];
 
   const rule = rules.find((r) => r.type === "round_robin");
-  if (!rule || rule.type !== "round_robin") return tracksByPlaylist.flat();
+  if (!rule || rule.type !== "round_robin") return tracksByPlaylist.flatMap((p) => p.tracks);
 
-  const queues = tracksByPlaylist.map((tracks, i) => ({ i, tracks: [...tracks] }));
+  const queues = tracksByPlaylist.map((p) => ({ playlistId: p.playlistId, tracks: [...p.tracks] }));
   const result: SimplifiedTrack[] = [];
 
   let anyLeft = true;
   while (anyLeft) {
     anyLeft = false;
     for (const queue of queues) {
-      const n = rule.overrides[String(queue.i)] ?? rule.defaultN;
+      const n = rule.overrides[queue.playlistId] ?? rule.defaultN;
       for (let j = 0; j < n; j++) {
         const track = queue.tracks.shift();
         if (track) { result.push(track); anyLeft = true; }
@@ -67,11 +67,20 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
         const g = groups.find((gr) => gr.id === found.groupId) ?? null;
         setGroup(g);
         if (g) {
+          // Set IDs as placeholder names until Spotify lookup resolves
           setGroupPlaylists(g.playlistIds.map((pid) => ({ id: pid, name: pid })));
         }
       } catch {}
     }
   }, [id]);
+
+  // Resolve human-readable playlist names once session is available
+  useEffect(() => {
+    if (!session?.accessToken || !group) return;
+    getPlaylistNames(session.accessToken, group.playlistIds).then((nameMap) => {
+      setGroupPlaylists(group.playlistIds.map((pid) => ({ id: pid, name: nameMap[pid] ?? pid })));
+    });
+  }, [session, group]);
 
   const saveRules = (rules: Rule[]) => {
     const all = loadGroupedPlaylists();
@@ -85,9 +94,10 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
     setGenerating(true);
     try {
       const tracksByPlaylist = await Promise.all(
-        group.playlistIds.map((pid) =>
-          getPlaylistTracksClient(session.accessToken!, pid)
-        )
+        group.playlistIds.map(async (pid) => ({
+          playlistId: pid,
+          tracks: await getPlaylistTracksClient(session.accessToken!, pid),
+        }))
       );
       setGenerated(applyRoundRobin(tracksByPlaylist, playlist.rules));
     } finally {

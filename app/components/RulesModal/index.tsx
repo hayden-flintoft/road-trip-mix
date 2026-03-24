@@ -73,20 +73,20 @@ function RoundRobinRuleItem({
 
         {showOverrides && (
           <div className="rule-item__overrides">
-            {groupPlaylists.map((p, i) => (
+            {groupPlaylists.map((p) => (
               <label key={p.id} className="rule-item__override-row">
                 <span className="rule-item__override-name">{p.name}</span>
                 <input
                   type="number"
                   min={1}
                   className="rule-item__input rule-item__input--sm"
-                  value={rule.overrides[String(i)] ?? rule.defaultN}
+                  value={rule.overrides[p.id] ?? rule.defaultN}
                   onChange={(e) =>
                     onChange({
                       ...rule,
                       overrides: {
                         ...rule.overrides,
-                        [String(i)]: Math.max(1, parseInt(e.target.value) || 1),
+                        [p.id]: Math.max(1, parseInt(e.target.value) || 1),
                       },
                     })
                   }

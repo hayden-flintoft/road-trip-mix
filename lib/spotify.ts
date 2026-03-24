@@ -34,6 +34,24 @@ export async function getAllPlaylists(accessToken: string): Promise<Playlist[]> 
   return items;
 }
 
+export async function getPlaylistNames(
+  accessToken: string,
+  ids: string[]
+): Promise<Record<string, string>> {
+  const entries = await Promise.all(
+    ids.map(async (id) => {
+      const res = await fetch(
+        `https://api.spotify.com/v1/playlists/${id}?fields=name`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (!res.ok) return [id, id] as [string, string];
+      const data = await res.json();
+      return [id, data.name ?? id] as [string, string];
+    })
+  );
+  return Object.fromEntries(entries);
+}
+
 export type SimplifiedTrack = {
   id: string;
   name: string;
