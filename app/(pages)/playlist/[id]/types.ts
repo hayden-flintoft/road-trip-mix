@@ -5,6 +5,7 @@ export type AudioFeatures = {
   time_sig: string;
   danceability: number; // 0-100
   acousticness: number; // 0-100
+  genres: string[];
 };
 
 export type EnrichedTrack = {

@@ -87,7 +87,10 @@ export async function getEnrichedTracks(
     duration_ms: track.duration_ms,
     artists: track.artists,
     album: track.album,
-    genres: Array.from(new Set(track.artists.flatMap((a) => artistGenresMap[a.id] ?? []))),
+    genres: Array.from(new Set([
+      ...track.artists.flatMap((a) => artistGenresMap[a.id] ?? []),
+      ...(audioFeaturesMap[track.id]?.genres ?? []),
+    ])),
     audioFeatures: audioFeaturesMap[track.id] ?? null,
   }));
 }

@@ -3,7 +3,7 @@ import type { AudioFeatures } from "./types";
 
 const GETSONGBPM_BASE = "https://api.getsong.co";
 
-async function getClientToken(): Promise<string> {
+async function getClientToken(): Promise<string | null> {
   const res = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
@@ -15,8 +15,12 @@ async function getClientToken(): Promise<string> {
     body: "grant_type=client_credentials",
     next: { revalidate: 3500 },
   });
+  if (!res.ok) {
+    console.error("[genres] client token fetch failed", res.status);
+    return null;
+  }
   const data = await res.json();
-  return data.access_token as string;
+  return data.access_token ?? null;
 }
 
 async function batchFetchArtistGenres(
@@ -33,7 +37,10 @@ async function batchFetchArtistGenres(
         `https://api.spotify.com/v1/artists?ids=${chunk.join(",")}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.error("[genres] artist fetch failed", res.status);
+        return;
+      }
       const data = await res.json();
       for (const artist of data.artists ?? []) {
         if (artist) result[artist.id] = artist.genres ?? [];
@@ -47,6 +54,7 @@ async function batchFetchArtistGenres(
 export const getCachedArtistGenres = unstable_cache(
   async (sortedIds: string[]) => {
     const token = await getClientToken();
+    if (!token) return {} as Record<string, string[]>;
     return batchFetchArtistGenres(token, sortedIds);
   },
   ["spotify-artist-genres"],
@@ -71,6 +79,7 @@ async function fetchSongBpm(
     time_sig: song.time_sig ?? "—",
     danceability: song.danceability ?? 0,
     acousticness: song.acousticness ?? 0,
+    genres: song.artist?.genres ?? [],
   };
 }
 
