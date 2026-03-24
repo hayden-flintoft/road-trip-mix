@@ -51,10 +51,6 @@
   color: #000;
 }
 
-.playlist-box:hover .playlist-box__play-btn {
-  opacity: 1;
-  transform: translateY(0);
-}
 
 .playlist-box__title {
   color: var(--text-base);
