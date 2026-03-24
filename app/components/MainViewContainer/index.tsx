@@ -3,6 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import PlaylistBox, { type Playlist } from "../PlaylistBox";
 import PlaylistListItem from "../PlaylistListItem";
+import GroupedPlaylistCard from "../GroupedPlaylistCard";
+import {
+  loadGroupedPlaylists,
+  saveGroupedPlaylists,
+  type GroupedPlaylist,
+} from "@/lib/grouped-playlists";
 import "./style.css";
 
 type Group = { id: string; name: string; playlistIds: string[] };
@@ -19,10 +25,12 @@ function GroupHeader({
   group,
   onRename,
   onDelete,
+  onAddGroupedPlaylist,
 }: {
   group: Group;
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
+  onAddGroupedPlaylist: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(group.name);
@@ -54,6 +62,11 @@ function GroupHeader({
         </h3>
       )}
       <span className="group-header__count">{group.playlistIds.length}</span>
+      <button className="group-header__btn group-header__btn--add" title="New grouped playlist" onClick={onAddGroupedPlaylist}>
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+          <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+      </button>
       <button className="group-header__btn" title="Rename" onClick={() => setEditing(true)}>
         <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
           <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
@@ -186,6 +199,9 @@ function GroupButton({
 export default function MainViewContainer({ playlists }: Props) {
   const [view, setView] = useState<View>("grid");
   const [groups, setGroups] = useState<Group[]>([]);
+  const [groupedPlaylists, setGroupedPlaylists] = useState<GroupedPlaylist[]>([]);
+  const [creatingGroupedIn, setCreatingGroupedIn] = useState<string | null>(null);
+  const [newGpName, setNewGpName] = useState("");
 
   useEffect(() => {
     try {
@@ -193,8 +209,23 @@ export default function MainViewContainer({ playlists }: Props) {
       if (g) setGroups(JSON.parse(g));
       const v = localStorage.getItem(VIEW_KEY) as View | null;
       if (v === "grid" || v === "list") setView(v);
+      setGroupedPlaylists(loadGroupedPlaylists());
     } catch {}
   }, []);
+
+  const saveGp = (next: GroupedPlaylist[]) => {
+    setGroupedPlaylists(next);
+    saveGroupedPlaylists(next);
+  };
+
+  const createGroupedPlaylist = (name: string, groupId: string) => {
+    saveGp([
+      ...groupedPlaylists,
+      { id: "local_" + crypto.randomUUID(), name, groupId, rules: [], createdAt: new Date().toISOString() },
+    ]);
+    setCreatingGroupedIn(null);
+    setNewGpName("");
+  };
 
   const saveGroups = (next: Group[]) => {
     setGroups(next);
@@ -310,22 +341,53 @@ export default function MainViewContainer({ playlists }: Props) {
         </div>
       </div>
 
-      {/* Group sections */}
-      {groupSections.map(
-        (group) =>
-          group.items.length > 0 && (
-            <div key={group.id} className="playlist-group">
-              <GroupHeader
-                group={group}
-                onRename={renameGroup}
-                onDelete={deleteGroup}
+      {/* Creation modal */}
+      {creatingGroupedIn && (
+        <div className="create-gp-overlay" onClick={() => { setCreatingGroupedIn(null); setNewGpName(""); }}>
+          <div className="create-gp-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="create-gp-modal__title">New Grouped Playlist</h3>
+            <p className="create-gp-modal__sub">
+              in &ldquo;{groups.find((g) => g.id === creatingGroupedIn)?.name}&rdquo;
+            </p>
+            <form onSubmit={(e) => { e.preventDefault(); if (newGpName.trim()) createGroupedPlaylist(newGpName.trim(), creatingGroupedIn); }}>
+              <input
+                autoFocus
+                className="create-gp-modal__input"
+                value={newGpName}
+                onChange={(e) => setNewGpName(e.target.value)}
+                placeholder="Playlist name"
+                onKeyDown={(e) => e.key === "Escape" && (setCreatingGroupedIn(null), setNewGpName(""))}
               />
-              <div className={view === "grid" ? gridClass : "flex flex-col"}>
-                {group.items.map(renderItem)}
+              <div className="create-gp-modal__actions">
+                <button type="button" className="create-gp-modal__cancel" onClick={() => { setCreatingGroupedIn(null); setNewGpName(""); }}>Cancel</button>
+                <button type="submit" className="create-gp-modal__confirm" disabled={!newGpName.trim()}>Create</button>
               </div>
-            </div>
-          )
+            </form>
+          </div>
+        </div>
       )}
+
+      {/* Group sections */}
+      {groupSections.map((group) => {
+        const gps = groupedPlaylists.filter((gp) => gp.groupId === group.id);
+        if (group.items.length === 0 && gps.length === 0) return null;
+        return (
+          <div key={group.id} className="playlist-group">
+            <GroupHeader
+              group={group}
+              onRename={renameGroup}
+              onDelete={deleteGroup}
+              onAddGroupedPlaylist={() => setCreatingGroupedIn(group.id)}
+            />
+            <div className={view === "grid" ? gridClass : "flex flex-col"}>
+              {gps.map((gp) => (
+                <GroupedPlaylistCard key={gp.id} playlist={gp} view={view} />
+              ))}
+              {group.items.map(renderItem)}
+            </div>
+          </div>
+        );
+      })}
 
       {/* Ungrouped */}
       {ungrouped.length > 0 && (
