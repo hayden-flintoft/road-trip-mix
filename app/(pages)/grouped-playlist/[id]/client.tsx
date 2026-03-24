@@ -9,6 +9,7 @@ import {
   type GroupedPlaylist,
   type Rule,
   type SpacingRule,
+  type AudioFeatureRule,
 } from "@/lib/grouped-playlists";
 import { getPlaylistTracksClient, getPlaylistNames, type SimplifiedTrack } from "@/lib/spotify";
 import RulesModal from "@/app/components/RulesModal";
@@ -16,10 +17,30 @@ import "../../playlist/[id]/style.css";
 
 type Group = { id: string; name: string; playlistIds: string[] };
 
+type TrackFeature = {
+  tempo: number;
+  danceability: number;
+  acousticness: number;
+} | null;
+
+type PlaylistStat = { name: string; count: number; durationMs: number };
+
 function formatDuration(ms: number) {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000).toString().padStart(2, "0");
   return `${m}:${s}`;
+}
+
+function formatTotalDuration(ms: number) {
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function trackKey(t: SimplifiedTrack) {
+  return `${t.name}::${t.artists[0]?.name ?? ""}`;
 }
 
 function applySpacing(tracks: SimplifiedTrack[], rule: SpacingRule): SimplifiedTrack[] {
@@ -50,6 +71,71 @@ function applySpacing(tracks: SimplifiedTrack[], rule: SpacingRule): SimplifiedT
   return result;
 }
 
+function applyAudioFeature(
+  tracks: SimplifiedTrack[],
+  rule: AudioFeatureRule,
+  featureMap: Map<string, TrackFeature>
+): SimplifiedTrack[] {
+  const getValue = (t: SimplifiedTrack): number | null => {
+    const f = featureMap.get(trackKey(t));
+    if (!f) return null;
+    switch (rule.feature) {
+      case "tempo": return f.tempo > 0 ? f.tempo : null;
+      case "danceability": return f.danceability;
+      case "acousticness": return f.acousticness;
+    }
+  };
+
+  const known = tracks.filter((t) => getValue(t) !== null);
+  const missing = tracks.filter((t) => getValue(t) === null);
+
+  known.sort((a, b) => {
+    const va = getValue(a)!;
+    const vb = getValue(b)!;
+    return rule.direction === "asc" ? va - vb : vb - va;
+  });
+
+  switch (rule.missingPlacement) {
+    case "first":
+      return [...missing, ...known];
+    case "last":
+      return [...known, ...missing];
+    case "alternate": {
+      const result: SimplifiedTrack[] = [];
+      let ki = 0, mi = 0;
+      while (ki < known.length || mi < missing.length) {
+        if (ki < known.length) result.push(known[ki++]);
+        if (mi < missing.length) result.push(missing[mi++]);
+      }
+      return result;
+    }
+    case "disperse": {
+      if (missing.length === 0) return known;
+      if (known.length === 0) return missing;
+      const total = known.length + missing.length;
+      const insertAt = new Set(
+        Array.from({ length: missing.length }, (_, i) =>
+          Math.round((0.5 + i) * total / missing.length)
+        ).map((p) => Math.min(p, total - 1))
+      );
+      const result: SimplifiedTrack[] = [];
+      let ki = 0, mi = 0;
+      for (let i = 0; i < total; i++) {
+        if (insertAt.has(i) && mi < missing.length) {
+          result.push(missing[mi++]);
+        } else if (ki < known.length) {
+          result.push(known[ki++]);
+        } else {
+          result.push(missing[mi++]);
+        }
+      }
+      while (ki < known.length) result.push(known[ki++]);
+      while (mi < missing.length) result.push(missing[mi++]);
+      return result;
+    }
+  }
+}
+
 function applyRoundRobin(
   tracksByPlaylist: { playlistId: string; tracks: SimplifiedTrack[] }[],
   rules: Rule[]
@@ -76,11 +162,30 @@ function applyRoundRobin(
   return result;
 }
 
+async function fetchAudioFeatures(tracks: SimplifiedTrack[]): Promise<TrackFeature[]> {
+  try {
+    const res = await fetch("/api/audio-features", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tracks: tracks.map((t) => ({ name: t.name, artist: t.artists[0]?.name ?? "" })),
+      }),
+    });
+    if (!res.ok) return tracks.map(() => null);
+    const data = await res.json();
+    return data.features ?? tracks.map(() => null);
+  } catch {
+    return tracks.map(() => null);
+  }
+}
+
 export default function GroupedPlaylistClient({ id }: { id: string }) {
   const { data: session } = useSession();
   const [playlist, setPlaylist] = useState<GroupedPlaylist | null>(null);
   const [group, setGroup] = useState<Group | null>(null);
   const [groupPlaylists, setGroupPlaylists] = useState<{ id: string; name: string }[]>([]);
+  const [playlistStats, setPlaylistStats] = useState<Map<string, PlaylistStat> | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [generated, setGenerated] = useState<SimplifiedTrack[] | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -111,6 +216,42 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
     });
   }, [session, group]);
 
+  // Fetch per-playlist stats (track count + total duration) in background
+  useEffect(() => {
+    if (!session?.accessToken || !group) return;
+    setLoadingStats(true);
+    Promise.all(
+      group.playlistIds.map(async (pid) => {
+        const tracks = await getPlaylistTracksClient(session.accessToken!, pid);
+        const durationMs = tracks.reduce((sum, t) => sum + t.duration_ms, 0);
+        return { id: pid, count: tracks.length, durationMs };
+      })
+    ).then((results) => {
+      const map = new Map<string, PlaylistStat>();
+      results.forEach(({ id: pid, count, durationMs }) => {
+        const name = groupPlaylists.find((p) => p.id === pid)?.name ?? pid;
+        map.set(pid, { name, count, durationMs });
+      });
+      setPlaylistStats(map);
+      setLoadingStats(false);
+    }).catch(() => setLoadingStats(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, group]);
+
+  // Update stat names when groupPlaylists resolves
+  useEffect(() => {
+    if (!playlistStats || groupPlaylists.length === 0) return;
+    setPlaylistStats((prev) => {
+      if (!prev) return prev;
+      const next = new Map(prev);
+      groupPlaylists.forEach(({ id: pid, name }) => {
+        const stat = next.get(pid);
+        if (stat && name !== pid) next.set(pid, { ...stat, name });
+      });
+      return next;
+    });
+  }, [groupPlaylists]);
+
   const saveRules = (rules: Rule[]) => {
     const all = loadGroupedPlaylists();
     const updated = all.map((p) => (p.id === id ? { ...p, rules } : p));
@@ -129,8 +270,18 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
         }))
       );
       let result = applyRoundRobin(tracksByPlaylist, playlist.rules);
+
+      // Fetch audio features if any audio_feature rules exist
+      const audioRules = playlist.rules.filter((r) => r.type === "audio_feature");
+      let featureMap: Map<string, TrackFeature> | null = null;
+      if (audioRules.length > 0) {
+        const features = await fetchAudioFeatures(result);
+        featureMap = new Map(result.map((t, i) => [trackKey(t), features[i]]));
+      }
+
       for (const rule of playlist.rules) {
         if (rule.type === "spacing") result = applySpacing(result, rule);
+        else if (rule.type === "audio_feature" && featureMap) result = applyAudioFeature(result, rule, featureMap);
       }
       setGenerated(result);
     } finally {
@@ -145,6 +296,16 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
       </div>
     );
   }
+
+  const totalStats = playlistStats && group
+    ? group.playlistIds.reduce(
+        (acc, pid) => {
+          const s = playlistStats.get(pid);
+          return s ? { count: acc.count + s.count, durationMs: acc.durationMs + s.durationMs } : acc;
+        },
+        { count: 0, durationMs: 0 }
+      )
+    : null;
 
   return (
     <div className="px-6 py-6">
@@ -182,7 +343,38 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
                   Sourced from group &ldquo;{group.name}&rdquo;
                 </p>
               )}
-              <p className="playlist-owner text-sm font-semibold">
+
+              {/* Per-playlist stats */}
+              {group && (
+                <div className="grouped-playlist-stats">
+                  {loadingStats && !playlistStats && (
+                    <p className="grouped-playlist-stats__loading">Loading stats…</p>
+                  )}
+                  {playlistStats && (
+                    <>
+                      {group.playlistIds.map((pid) => {
+                        const stat = playlistStats.get(pid);
+                        if (!stat) return null;
+                        return (
+                          <p key={pid} className="grouped-playlist-stats__row">
+                            <span className="grouped-playlist-stats__name">{stat.name}</span>
+                            <span className="grouped-playlist-stats__meta">
+                              {stat.count} song{stat.count !== 1 ? "s" : ""} · {formatTotalDuration(stat.durationMs)}
+                            </span>
+                          </p>
+                        );
+                      })}
+                      {totalStats && group.playlistIds.length > 1 && (
+                        <p className="grouped-playlist-stats__total">
+                          {totalStats.count} songs total · {formatTotalDuration(totalStats.durationMs)}
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <p className="playlist-owner text-sm font-semibold" style={{ marginTop: playlistStats ? "12px" : undefined }}>
                 {playlist.rules.length} rule{playlist.rules.length !== 1 ? "s" : ""}
                 {generated && (
                   <span className="playlist-owner-sub font-normal">

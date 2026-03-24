@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { GroupedPlaylist, Rule, RoundRobinRule, SpacingRule } from "@/lib/grouped-playlists";
+import type { GroupedPlaylist, Rule, RoundRobinRule, SpacingRule, AudioFeatureRule } from "@/lib/grouped-playlists";
 import "./style.css";
 
 type Props = {
@@ -172,6 +172,102 @@ function SpacingRuleItem({
   );
 }
 
+const FEATURE_LABELS: Record<AudioFeatureRule["feature"], string> = {
+  tempo: "BPM (tempo)",
+  danceability: "Danceability",
+  acousticness: "Acousticness",
+};
+
+const MISSING_LABELS: Record<AudioFeatureRule["missingPlacement"], string> = {
+  first: "Place first",
+  last: "Place last",
+  alternate: "Alternate with sorted",
+  disperse: "Disperse evenly",
+};
+
+function AudioFeatureRuleItem({
+  rule,
+  onChange,
+  onDelete,
+  isDragging,
+  isDragOver,
+}: {
+  rule: AudioFeatureRule;
+  onChange: (updated: AudioFeatureRule) => void;
+  onDelete: () => void;
+  isDragging: boolean;
+  isDragOver: boolean;
+}) {
+  const featureLabel = FEATURE_LABELS[rule.feature];
+  const dirLabel = rule.direction === "asc" ? "low → high" : "high → low";
+  const missingLabel = MISSING_LABELS[rule.missingPlacement].toLowerCase();
+
+  return (
+    <div className={`rule-item ${isDragging ? "rule-item--dragging" : ""} ${isDragOver ? "rule-item--drag-over" : ""}`}>
+      <div className="rule-item__handle">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+        </svg>
+      </div>
+
+      <div className="rule-item__body">
+        <div className="rule-item__header">
+          <p className="rule-item__title">Sort by audio feature</p>
+          <button className="rule-item__delete" onClick={onDelete} title="Remove rule">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="rule-item__config">
+          <label className="rule-item__label">
+            Feature
+            <select
+              className="rule-item__select"
+              value={rule.feature}
+              onChange={(e) => onChange({ ...rule, feature: e.target.value as AudioFeatureRule["feature"] })}
+            >
+              <option value="tempo">BPM (tempo)</option>
+              <option value="danceability">Danceability</option>
+              <option value="acousticness">Acousticness</option>
+            </select>
+          </label>
+          <label className="rule-item__label">
+            Direction
+            <select
+              className="rule-item__select"
+              value={rule.direction}
+              onChange={(e) => onChange({ ...rule, direction: e.target.value as "asc" | "desc" })}
+            >
+              <option value="asc">Low → High</option>
+              <option value="desc">High → Low</option>
+            </select>
+          </label>
+          <label className="rule-item__label">
+            Tracks without data
+            <select
+              className="rule-item__select"
+              value={rule.missingPlacement}
+              onChange={(e) => onChange({ ...rule, missingPlacement: e.target.value as AudioFeatureRule["missingPlacement"] })}
+            >
+              <option value="first">Place first</option>
+              <option value="last">Place last</option>
+              <option value="alternate">Alternate with sorted</option>
+              <option value="disperse">Disperse evenly</option>
+            </select>
+          </label>
+        </div>
+
+        <p className="rule-item__desc">
+          Sorts tracks by {featureLabel} from {dirLabel}.
+          Tracks without {featureLabel} data are {missingLabel}.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }: Props) {
   const [rules, setRules] = useState<Rule[]>(playlist.rules);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -188,6 +284,13 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
     setRules((prev) => [
       ...prev,
       { id: crypto.randomUUID(), type: "spacing", n: 3, applyToArtist: true, applyToAlbum: false },
+    ]);
+  };
+
+  const addAudioFeature = () => {
+    setRules((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), type: "audio_feature", feature: "tempo", direction: "asc", missingPlacement: "disperse" },
     ]);
   };
 
@@ -259,6 +362,15 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                       isDragOver={dragOverIndex === i && dragIndex !== i}
                     />
                   )}
+                  {rule.type === "audio_feature" && (
+                    <AudioFeatureRuleItem
+                      rule={rule}
+                      onChange={(updated) => updateRule(i, updated)}
+                      onDelete={() => deleteRule(i)}
+                      isDragging={dragIndex === i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -271,6 +383,9 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
             </button>
             <button className="rules-modal__add-btn" onClick={addSpacing}>
               + Avoid repeating artist / album within n tracks
+            </button>
+            <button className="rules-modal__add-btn" onClick={addAudioFeature}>
+              + Sort by audio feature (BPM, danceability, acousticness)
             </button>
           </div>
         </div>

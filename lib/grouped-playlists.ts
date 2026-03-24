@@ -13,7 +13,15 @@ export type SpacingRule = {
   applyToAlbum: boolean;
 };
 
-export type Rule = RoundRobinRule | SpacingRule;
+export type AudioFeatureRule = {
+  id: string;
+  type: "audio_feature";
+  feature: "tempo" | "danceability" | "acousticness";
+  direction: "asc" | "desc";
+  missingPlacement: "first" | "last" | "alternate" | "disperse";
+};
+
+export type Rule = RoundRobinRule | SpacingRule | AudioFeatureRule;
 
 export type GroupedPlaylist = {
   id: string;

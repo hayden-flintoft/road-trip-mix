@@ -98,3 +98,49 @@
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Grouped playlist stats ── */
+
+.grouped-playlist-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.grouped-playlist-stats__loading {
+  font-size: 0.8125rem;
+  color: var(--text-subdued);
+  font-style: italic;
+}
+
+.grouped-playlist-stats__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-subdued);
+  line-height: 1.4;
+}
+
+.grouped-playlist-stats__name {
+  color: var(--text-base);
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+.grouped-playlist-stats__meta {
+  flex-shrink: 0;
+}
+
+.grouped-playlist-stats__total {
+  font-size: 0.8125rem;
+  color: var(--text-subdued);
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
