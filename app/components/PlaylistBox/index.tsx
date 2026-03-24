@@ -5,7 +5,7 @@ import "./style.css";
 export type Playlist = {
   id: string;
   name: string;
-  images: { url: string }[];
+  images: { url: string }[] | null;
   tracks: { total: number } | null;
   owner: { display_name: string };
 };
@@ -18,9 +18,9 @@ export default function PlaylistBox({ playlist }: Props) {
   return (
     <Link href={`/playlist/${playlist.id}`} className="playlist-box" role="listitem">
       <div className="playlist-box__image-wrapper">
-        {playlist.images[0] ? (
+        {playlist.images?.[0] ? (
           <Image
-            src={playlist.images[0].url}
+            src={playlist.images![0].url}
             alt={playlist.name}
             width={300}
             height={300}
