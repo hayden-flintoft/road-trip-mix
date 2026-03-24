@@ -177,7 +177,16 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
               className="px-5 py-2 rounded-full text-sm font-semibold transition-opacity"
               style={{ backgroundColor: "var(--text-bright-accent)", color: "#000", opacity: generating ? 0.6 : 1 }}
             >
-              {generating ? "Generating…" : "Generate"}
+              {generating ? "Generating…" : generated !== null ? "Regenerate" : "Generate"}
+            </button>
+          )}
+          {generated !== null && (
+            <button
+              onClick={() => setGenerated(null)}
+              className="px-5 py-2 rounded-full text-sm font-semibold border transition-colors"
+              style={{ borderColor: "rgba(255,255,255,0.2)", color: "var(--text-subdued)" }}
+            >
+              Clear
             </button>
           )}
         </div>
