@@ -5,13 +5,37 @@ import LoginButton from "../components/login-button";
 import type { Playlist } from "../components/PlaylistBox";
 
 async function getPlaylists(accessToken: string): Promise<Playlist[]> {
-  const res = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: "no-store",
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.items ?? [];
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const limit = 50;
+
+  const first = await fetch(
+    `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=0`,
+    { headers, cache: "no-store" }
+  );
+  if (!first.ok) return [];
+  const firstData = await first.json();
+  const total: number = firstData.total ?? 0;
+  const items: Playlist[] = firstData.items ?? [];
+
+  if (total > limit) {
+    const offsets = Array.from(
+      { length: Math.ceil((total - limit) / limit) },
+      (_, i) => (i + 1) * limit
+    );
+    const rest = await Promise.all(
+      offsets.map((offset) =>
+        fetch(
+          `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=${offset}`,
+          { headers, cache: "no-store" }
+        )
+          .then((r) => r.json())
+          .then((d) => (d.items ?? []) as Playlist[])
+      )
+    );
+    items.push(...rest.flat());
+  }
+
+  return items;
 }
 
 export default async function Home() {
