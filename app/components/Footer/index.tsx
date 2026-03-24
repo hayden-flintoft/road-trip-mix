@@ -10,6 +10,16 @@ export default function Footer() {
         className="underline hover:opacity-80"
       >
         Song BPM data by GetSongBPM
+      </a>{" "}
+      &middot;{" "}
+      <a
+        href="https://reccobeats.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "var(--text-subdued)" }}
+        className="underline hover:opacity-80"
+      >
+        Audio features by ReccoBeats
       </a>
     </footer>
   );
