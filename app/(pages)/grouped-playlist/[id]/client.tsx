@@ -24,6 +24,8 @@ type TrackFeature = {
   acousticness: number;
 } | null;
 
+type TrackedTrack = SimplifiedTrack & { sourcePlaylistId: string };
+
 type PlaylistStat = { count: number; durationMs: number };
 
 const SEGMENT_COLORS = [
@@ -121,8 +123,8 @@ function trackKey(t: SimplifiedTrack) {
   return `${t.name}::${t.artists[0]?.name ?? ""}`;
 }
 
-function applySpacing(tracks: SimplifiedTrack[], rule: SpacingRule): SimplifiedTrack[] {
-  const result: SimplifiedTrack[] = [];
+function applySpacing(tracks: TrackedTrack[], rule: SpacingRule): TrackedTrack[] {
+  const result: TrackedTrack[] = [];
   const remaining = [...tracks];
 
   while (remaining.length > 0) {
@@ -150,10 +152,10 @@ function applySpacing(tracks: SimplifiedTrack[], rule: SpacingRule): SimplifiedT
 }
 
 function applyAudioFeature(
-  tracks: SimplifiedTrack[],
+  tracks: TrackedTrack[],
   rule: AudioFeatureRule,
   featureMap: Map<string, TrackFeature>
-): SimplifiedTrack[] {
+): TrackedTrack[] {
   const getValue = (t: SimplifiedTrack): number | null => {
     const f = featureMap.get(trackKey(t));
     if (!f) return null;
@@ -187,7 +189,7 @@ function applyAudioFeature(
     case "last":
       return [...known, ...missing];
     case "alternate": {
-      const result: SimplifiedTrack[] = [];
+      const result: TrackedTrack[] = [];
       let ki = 0, mi = 0;
       while (ki < known.length || mi < missing.length) {
         if (ki < known.length) result.push(known[ki++]);
@@ -218,7 +220,7 @@ function applyAudioFeature(
         ).map((p) => Math.min(p, total - 1))
       );
 
-      const result: SimplifiedTrack[] = [];
+      const result: TrackedTrack[] = [];
       let ki = 0, mi = 0;
       for (let i = 0; i < total; i++) {
         if (insertAt.has(i) && mi < missing.length) {
@@ -248,10 +250,10 @@ function seededRng(seed: number) {
 }
 
 function applySort(
-  tracks: SimplifiedTrack[],
+  tracks: TrackedTrack[],
   rule: SortRule,
   featureMap: Map<string, TrackFeature> | null
-): SimplifiedTrack[] {
+): TrackedTrack[] {
   const result = [...tracks];
 
   switch (rule.method) {
@@ -305,14 +307,21 @@ function applySort(
 function applyRoundRobin(
   tracksByPlaylist: { playlistId: string; tracks: SimplifiedTrack[] }[],
   rules: Rule[]
-): SimplifiedTrack[] {
+): TrackedTrack[] {
+  const tag = (t: SimplifiedTrack, pid: string): TrackedTrack => ({ ...t, sourcePlaylistId: pid });
+
   if (rules.length === 0 || tracksByPlaylist.length === 0) return [];
 
   const rule = rules.find((r) => r.type === "round_robin");
-  if (!rule || rule.type !== "round_robin") return tracksByPlaylist.flatMap((p) => p.tracks);
+  if (!rule || rule.type !== "round_robin") {
+    return tracksByPlaylist.flatMap((p) => p.tracks.map((t) => tag(t, p.playlistId)));
+  }
 
-  const queues = tracksByPlaylist.map((p) => ({ playlistId: p.playlistId, tracks: [...p.tracks] }));
-  const result: SimplifiedTrack[] = [];
+  const queues = tracksByPlaylist.map((p) => ({
+    playlistId: p.playlistId,
+    tracks: p.tracks.map((t) => tag(t, p.playlistId)),
+  }));
+  const result: TrackedTrack[] = [];
 
   let anyLeft = true;
   while (anyLeft) {
@@ -353,7 +362,7 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
   const [playlistStats, setPlaylistStats] = useState<Map<string, PlaylistStat> | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [showRules, setShowRules] = useState(false);
-  const [generated, setGenerated] = useState<SimplifiedTrack[] | null>(null);
+  const [generated, setGenerated] = useState<TrackedTrack[] | null>(null);
   const [generating, setGenerating] = useState(false);
 
   // Restore previously generated tracks from localStorage
@@ -622,7 +631,13 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
             </div>
           ) : (
             <div>
-              {generated.map((track, i) => (
+              {generated.map((track, i) => {
+                const cumulative = generated.slice(0, i + 1).reduce((s, t) => s + t.duration_ms, 0);
+                const sourceName = groupPlaylists.find((p) => p.id === track.sourcePlaylistId)?.name ?? track.sourcePlaylistId ?? "";
+                const sourceColor = SEGMENT_COLORS[
+                  (group?.playlistIds.indexOf(track.sourcePlaylistId) ?? 0) % SEGMENT_COLORS.length
+                ];
+                return (
                 <div
                   key={track.id + i}
                   className="flex items-center gap-4 px-4 py-2 rounded text-sm hover:bg-white/5 transition-colors"
@@ -636,14 +651,24 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
                       {track.artists.map((a) => a.name).join(", ")}
                     </p>
                   </div>
-                  <p className="text-xs truncate hidden sm:block w-40" style={{ color: "var(--text-subdued)" }}>
+                  <p className="text-xs truncate hidden md:block w-36" style={{ color: "var(--text-subdued)" }}>
                     {track.album.name}
                   </p>
-                  <span className="text-xs flex-shrink-0" style={{ color: "var(--text-subdued)", fontVariantNumeric: "tabular-nums" }}>
-                    {formatDuration(track.duration_ms)}
-                  </span>
+                  <p className="text-xs truncate hidden lg:flex items-center gap-1 w-36 flex-shrink-0">
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: sourceColor, flexShrink: 0, display: "inline-block" }} />
+                    <span className="truncate" style={{ color: "var(--text-subdued)" }}>{sourceName}</span>
+                  </p>
+                  <div className="flex-shrink-0 text-right" style={{ minWidth: 64 }}>
+                    <p className="text-xs" style={{ color: "var(--text-subdued)", fontVariantNumeric: "tabular-nums" }}>
+                      {formatDuration(track.duration_ms)}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--text-subdued)", opacity: 0.5, fontVariantNumeric: "tabular-nums" }}>
+                      {formatTotalDuration(cumulative)}
+                    </p>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
