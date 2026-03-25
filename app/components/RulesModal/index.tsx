@@ -199,7 +199,7 @@ function AudioFeatureRuleItem({
   isDragOver: boolean;
 }) {
   const featureLabel = FEATURE_LABELS[rule.feature];
-  const dirLabel = rule.direction === "asc" ? "low → high" : "high → low";
+  const dirLabel = rule.direction === "asc" ? "low → high" : rule.direction === "desc" ? "high → low" : "low → high → low";
   const missingLabel = MISSING_LABELS[rule.missingPlacement].toLowerCase();
 
   return (
@@ -242,6 +242,7 @@ function AudioFeatureRuleItem({
             >
               <option value="asc">Low → High</option>
               <option value="desc">High → Low</option>
+              <option value="asc-desc">Low → High → Low</option>
             </select>
           </label>
           <label className="rule-item__label">

@@ -25,6 +25,83 @@ type TrackFeature = {
 
 type PlaylistStat = { name: string; count: number; durationMs: number };
 
+const SEGMENT_COLORS = [
+  "#1db954", "#3d87e4", "#f0a500", "#e25f5f", "#a855f7", "#14b8a6", "#f97316",
+];
+
+function DonutChart({
+  segments,
+  totalLabel,
+  subtotalLabel,
+  size = 232,
+}: {
+  segments: { value: number; color: string }[];
+  totalLabel: string;
+  subtotalLabel: string;
+  size?: number;
+}) {
+  const center = size / 2;
+  const strokeWidth = 32;
+  const r = center - strokeWidth / 2 - 8;
+  const circumference = 2 * Math.PI * r;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (total === 0) return null;
+
+  let accumulated = 0;
+  const computed = segments.map((seg) => {
+    const fullLen = (seg.value / total) * circumference;
+    const gap = segments.length > 1 ? 3 : 0;
+    const segLen = Math.max(0, fullLen - gap);
+    const dashOffset = -accumulated;
+    accumulated += fullLen;
+    return { color: seg.color, segLen, dashOffset };
+  });
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <g style={{ transform: `rotate(-90deg)`, transformOrigin: `${center}px ${center}px` }}>
+        <circle
+          cx={center} cy={center} r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth={strokeWidth}
+        />
+        {computed.map(({ color, segLen, dashOffset }, i) => (
+          <circle
+            key={i}
+            cx={center} cy={center} r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="butt"
+            strokeDasharray={`${segLen} ${circumference * 2}`}
+            strokeDashoffset={dashOffset}
+          />
+        ))}
+      </g>
+      <text
+        x={center} y={center - 7}
+        textAnchor="middle"
+        fill="rgba(255,255,255,0.55)"
+        fontSize="11"
+        fontFamily="inherit"
+      >
+        {subtotalLabel}
+      </text>
+      <text
+        x={center} y={center + 13}
+        textAnchor="middle"
+        fill="rgba(255,255,255,0.9)"
+        fontSize="15"
+        fontWeight="700"
+        fontFamily="inherit"
+      >
+        {totalLabel}
+      </text>
+    </svg>
+  );
+}
+
 function formatDuration(ms: number) {
   const m = Math.floor(ms / 60000);
   const s = Math.floor((ms % 60000) / 1000).toString().padStart(2, "0");
@@ -89,11 +166,19 @@ function applyAudioFeature(
   const known = tracks.filter((t) => getValue(t) !== null);
   const missing = tracks.filter((t) => getValue(t) === null);
 
-  known.sort((a, b) => {
-    const va = getValue(a)!;
-    const vb = getValue(b)!;
-    return rule.direction === "asc" ? va - vb : vb - va;
-  });
+  if (rule.direction === "asc" || rule.direction === "desc") {
+    known.sort((a, b) => {
+      const va = getValue(a)!;
+      const vb = getValue(b)!;
+      return rule.direction === "asc" ? va - vb : vb - va;
+    });
+  } else {
+    // "asc-desc": sort ascending, first half stays, second half reversed → mountain shape
+    known.sort((a, b) => getValue(a)! - getValue(b)!);
+    const peak = Math.ceil(known.length / 2);
+    const down = known.splice(peak).reverse();
+    known.push(...down);
+  }
 
   switch (rule.missingPlacement) {
     case "first":
@@ -190,6 +275,14 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
   const [generated, setGenerated] = useState<SimplifiedTrack[] | null>(null);
   const [generating, setGenerating] = useState(false);
 
+  // Restore previously generated tracks from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`road-trip-mix:generated:${id}`);
+      if (saved) setGenerated(JSON.parse(saved));
+    } catch {}
+  }, [id]);
+
   useEffect(() => {
     const gps = loadGroupedPlaylists();
     const found = gps.find((p) => p.id === id) ?? null;
@@ -284,6 +377,9 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
         else if (rule.type === "audio_feature" && featureMap) result = applyAudioFeature(result, rule, featureMap);
       }
       setGenerated(result);
+      try {
+        localStorage.setItem(`road-trip-mix:generated:${id}`, JSON.stringify(result));
+      } catch {}
     } finally {
       setGenerating(false);
     }
@@ -327,11 +423,23 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
           <div className="flex gap-6 items-end mt-4">
             <div
               className="flex-shrink-0 rounded flex items-center justify-center"
-              style={{ width: 232, height: 232, background: "linear-gradient(135deg, #1a1a2e, #0f3460)" }}
+              style={{ width: 232, height: 232, background: "linear-gradient(135deg, #1a1a2e, #0f3460)", position: "relative" }}
             >
-              <svg viewBox="0 0 24 24" width="80" height="80" fill="rgba(255,255,255,0.2)">
-                <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
-              </svg>
+              {playlistStats && totalStats && group ? (
+                <DonutChart
+                  segments={group.playlistIds.map((pid, i) => ({
+                    value: playlistStats.get(pid)?.durationMs ?? 0,
+                    color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+                  }))}
+                  totalLabel={formatTotalDuration(totalStats.durationMs)}
+                  subtotalLabel={`${totalStats.count} songs`}
+                  size={232}
+                />
+              ) : (
+                <svg viewBox="0 0 24 24" width="80" height="80" fill="rgba(255,255,255,0.2)">
+                  <path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/>
+                </svg>
+              )}
             </div>
             <div className="pb-2">
               <p className="playlist-label text-xs font-bold uppercase tracking-widest mb-2">
@@ -352,11 +460,15 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
                   )}
                   {playlistStats && (
                     <>
-                      {group.playlistIds.map((pid) => {
+                      {group.playlistIds.map((pid, i) => {
                         const stat = playlistStats.get(pid);
                         if (!stat) return null;
                         return (
                           <p key={pid} className="grouped-playlist-stats__row">
+                            <span
+                              className="grouped-playlist-stats__dot"
+                              style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
+                            />
                             <span className="grouped-playlist-stats__name">{stat.name}</span>
                             <span className="grouped-playlist-stats__meta">
                               {stat.count} song{stat.count !== 1 ? "s" : ""} · {formatTotalDuration(stat.durationMs)}
@@ -407,7 +519,10 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
           )}
           {generated !== null && (
             <button
-              onClick={() => setGenerated(null)}
+              onClick={() => {
+              setGenerated(null);
+              try { localStorage.removeItem(`road-trip-mix:generated:${id}`); } catch {}
+            }}
               className="px-5 py-2 rounded-full text-sm font-semibold border transition-colors"
               style={{ borderColor: "rgba(255,255,255,0.2)", color: "var(--text-subdued)" }}
             >

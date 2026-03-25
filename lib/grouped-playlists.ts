@@ -17,7 +17,7 @@ export type AudioFeatureRule = {
   id: string;
   type: "audio_feature";
   feature: "tempo" | "danceability" | "acousticness";
-  direction: "asc" | "desc";
+  direction: "asc" | "desc" | "asc-desc";
   missingPlacement: "first" | "last" | "alternate" | "disperse";
 };
 
