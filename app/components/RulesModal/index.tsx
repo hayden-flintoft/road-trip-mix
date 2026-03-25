@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { GroupedPlaylist, Rule, RoundRobinRule, SpacingRule, AudioFeatureRule } from "@/lib/grouped-playlists";
+import type { GroupedPlaylist, Rule, RoundRobinRule, SpacingRule, AudioFeatureRule, SortRule } from "@/lib/grouped-playlists";
 import "./style.css";
 
 type Props = {
@@ -172,6 +172,140 @@ function SpacingRuleItem({
   );
 }
 
+const SORT_METHOD_LABELS: Record<SortRule["method"], string> = {
+  "random":        "Shuffle (Random)",
+  "random-seeded": "Shuffle (Seeded)",
+  "random-soft":   "Soft Shuffle",
+  "name-asc":      "Track Name A → Z",
+  "name-desc":     "Track Name Z → A",
+  "album-asc":     "Album A → Z",
+  "album-desc":    "Album Z → A",
+  "artist-asc":    "Artist A → Z",
+  "artist-desc":   "Artist Z → A",
+  "bpm-asc":       "BPM Low → High",
+  "bpm-desc":      "BPM High → Low",
+  "duration-asc":  "Duration Short → Long",
+  "duration-desc": "Duration Long → Short",
+};
+
+const SORT_METHOD_DESCRIPTIONS: Record<SortRule["method"], (rule: SortRule) => string> = {
+  "random":        () => "Shuffles all tracks randomly. Each generate produces a different order.",
+  "random-seeded": (r) => `Reproducible shuffle — seed ${r.seed ?? 1} always produces the same order.`,
+  "random-soft":   (r) => `Shuffles tracks with limited displacement. Each track moves at most ${r.window ?? 5} positions from where it started.`,
+  "name-asc":      () => "Sorts tracks alphabetically by title (A → Z).",
+  "name-desc":     () => "Sorts tracks by title in reverse alphabetical order (Z → A).",
+  "album-asc":     () => "Sorts tracks alphabetically by album name (A → Z).",
+  "album-desc":    () => "Sorts tracks by album name in reverse alphabetical order (Z → A).",
+  "artist-asc":    () => "Sorts tracks alphabetically by artist name (A → Z).",
+  "artist-desc":   () => "Sorts tracks by artist name in reverse alphabetical order (Z → A).",
+  "bpm-asc":       () => "Sorts from lowest to highest BPM. Audio data is fetched on generate.",
+  "bpm-desc":      () => "Sorts from highest to lowest BPM. Audio data is fetched on generate.",
+  "duration-asc":  () => "Sorts from shortest to longest track duration.",
+  "duration-desc": () => "Sorts from longest to shortest track duration.",
+};
+
+function SortRuleItem({
+  rule,
+  onChange,
+  onDelete,
+  dragHandleProps,
+  isDragging,
+  isDragOver,
+}: {
+  rule: SortRule;
+  onChange: (updated: SortRule) => void;
+  onDelete: () => void;
+  dragHandleProps: React.HTMLAttributes<HTMLDivElement>;
+  isDragging: boolean;
+  isDragOver: boolean;
+}) {
+  return (
+    <div className={`rule-item ${isDragging ? "rule-item--dragging" : ""} ${isDragOver ? "rule-item--drag-over" : ""}`}>
+      <div className="rule-item__handle" {...dragHandleProps}>
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+        </svg>
+      </div>
+
+      <div className="rule-item__body">
+        <div className="rule-item__header">
+          <p className="rule-item__title">Sort: {SORT_METHOD_LABELS[rule.method]}</p>
+          <button className="rule-item__delete" onClick={onDelete} title="Remove rule">
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor">
+              <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="rule-item__config">
+          <label className="rule-item__label">
+            Method
+            <select
+              className="rule-item__select"
+              value={rule.method}
+              onChange={(e) => onChange({ ...rule, method: e.target.value as SortRule["method"] })}
+            >
+              <optgroup label="Random">
+                <option value="random">Shuffle (Random)</option>
+                <option value="random-seeded">Shuffle (Seeded)</option>
+                <option value="random-soft">Soft Shuffle</option>
+              </optgroup>
+              <optgroup label="Track Name">
+                <option value="name-asc">A → Z</option>
+                <option value="name-desc">Z → A</option>
+              </optgroup>
+              <optgroup label="Album">
+                <option value="album-asc">A → Z</option>
+                <option value="album-desc">Z → A</option>
+              </optgroup>
+              <optgroup label="Artist">
+                <option value="artist-asc">A → Z</option>
+                <option value="artist-desc">Z → A</option>
+              </optgroup>
+              <optgroup label="BPM">
+                <option value="bpm-asc">Low → High</option>
+                <option value="bpm-desc">High → Low</option>
+              </optgroup>
+              <optgroup label="Duration">
+                <option value="duration-asc">Short → Long</option>
+                <option value="duration-desc">Long → Short</option>
+              </optgroup>
+            </select>
+          </label>
+
+          {rule.method === "random-seeded" && (
+            <label className="rule-item__label">
+              Seed
+              <input
+                type="number"
+                min={1}
+                className="rule-item__input"
+                value={rule.seed ?? 1}
+                onChange={(e) => onChange({ ...rule, seed: Math.max(1, parseInt(e.target.value) || 1) })}
+              />
+            </label>
+          )}
+
+          {rule.method === "random-soft" && (
+            <label className="rule-item__label">
+              Max displacement
+              <input
+                type="number"
+                min={2}
+                className="rule-item__input"
+                value={rule.window ?? 5}
+                onChange={(e) => onChange({ ...rule, window: Math.max(2, parseInt(e.target.value) || 5) })}
+              />
+            </label>
+          )}
+        </div>
+
+        <p className="rule-item__desc">{SORT_METHOD_DESCRIPTIONS[rule.method](rule)}</p>
+      </div>
+    </div>
+  );
+}
+
 const FEATURE_LABELS: Record<AudioFeatureRule["feature"], string> = {
   tempo: "BPM (tempo)",
   danceability: "Danceability",
@@ -278,6 +412,13 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  const addSort = () => {
+    setRules((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), type: "sort", method: "random" },
+    ]);
+  };
+
   const addRoundRobin = () => {
     setRules((prev) => [
       ...prev,
@@ -347,6 +488,16 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                   onDrop={() => { if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i); setDragIndex(null); setDragOverIndex(null); }}
                   onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
                 >
+                  {rule.type === "sort" && (
+                    <SortRuleItem
+                      rule={rule}
+                      onChange={(updated) => updateRule(i, updated)}
+                      onDelete={() => deleteRule(i)}
+                      dragHandleProps={{}}
+                      isDragging={dragIndex === i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                    />
+                  )}
                   {rule.type === "round_robin" && (
                     <RoundRobinRuleItem
                       rule={rule}
@@ -383,6 +534,9 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
 
           <div className="rules-modal__add">
             <p className="rules-modal__add-label">Add rule</p>
+            <button className="rules-modal__add-btn" onClick={addSort}>
+              + Sort tracks (shuffle, A–Z, BPM, duration…)
+            </button>
             <button className="rules-modal__add-btn" onClick={addRoundRobin}>
               + Add songs from group in rotation
             </button>

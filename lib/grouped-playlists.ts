@@ -21,7 +21,23 @@ export type AudioFeatureRule = {
   missingPlacement: "first" | "last" | "alternate" | "disperse" | "disperse-start" | "disperse-end";
 };
 
-export type Rule = RoundRobinRule | SpacingRule | AudioFeatureRule;
+export type SortRule = {
+  id: string;
+  type: "sort";
+  method:
+    | "random"
+    | "random-seeded"
+    | "random-soft"
+    | "name-asc" | "name-desc"
+    | "album-asc" | "album-desc"
+    | "artist-asc" | "artist-desc"
+    | "bpm-asc" | "bpm-desc"
+    | "duration-asc" | "duration-desc";
+  seed?: number;   // random-seeded
+  window?: number; // random-soft
+};
+
+export type Rule = RoundRobinRule | SpacingRule | AudioFeatureRule | SortRule;
 
 export type GroupedPlaylist = {
   id: string;

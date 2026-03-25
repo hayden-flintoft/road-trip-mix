@@ -10,6 +10,7 @@ import {
   type Rule,
   type SpacingRule,
   type AudioFeatureRule,
+  type SortRule,
 } from "@/lib/grouped-playlists";
 import { getPlaylistTracksClient, getPlaylistNames, type SimplifiedTrack } from "@/lib/spotify";
 import RulesModal from "@/app/components/RulesModal";
@@ -235,6 +236,72 @@ function applyAudioFeature(
   }
 }
 
+// Simple but good-quality 32-bit hash for seeded shuffle
+function seededRng(seed: number) {
+  let s = seed | 0;
+  return () => {
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s ^= s >>> 16;
+    return (s >>> 0) / 0x100000000;
+  };
+}
+
+function applySort(
+  tracks: SimplifiedTrack[],
+  rule: SortRule,
+  featureMap: Map<string, TrackFeature> | null
+): SimplifiedTrack[] {
+  const result = [...tracks];
+
+  switch (rule.method) {
+    case "random":
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+
+    case "random-seeded": {
+      const rng = seededRng(rule.seed ?? 1);
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    }
+
+    case "random-soft": {
+      const w = Math.max(2, rule.window ?? 5);
+      for (let i = 0; i < result.length - 1; i++) {
+        const j = i + Math.floor(Math.random() * Math.min(w, result.length - i));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    }
+
+    case "name-asc":  return result.sort((a, b) => a.name.localeCompare(b.name));
+    case "name-desc": return result.sort((a, b) => b.name.localeCompare(a.name));
+
+    case "album-asc":  return result.sort((a, b) => a.album.name.localeCompare(b.album.name));
+    case "album-desc": return result.sort((a, b) => b.album.name.localeCompare(a.album.name));
+
+    case "artist-asc":
+      return result.sort((a, b) => (a.artists[0]?.name ?? "").localeCompare(b.artists[0]?.name ?? ""));
+    case "artist-desc":
+      return result.sort((a, b) => (b.artists[0]?.name ?? "").localeCompare(a.artists[0]?.name ?? ""));
+
+    case "bpm-asc":
+    case "bpm-desc": {
+      const bpm = (t: SimplifiedTrack) => featureMap?.get(trackKey(t))?.tempo ?? 0;
+      return result.sort((a, b) => rule.method === "bpm-asc" ? bpm(a) - bpm(b) : bpm(b) - bpm(a));
+    }
+
+    case "duration-asc":  return result.sort((a, b) => a.duration_ms - b.duration_ms);
+    case "duration-desc": return result.sort((a, b) => b.duration_ms - a.duration_ms);
+  }
+}
+
 function applyRoundRobin(
   tracksByPlaylist: { playlistId: string; tracks: SimplifiedTrack[] }[],
   rules: Rule[]
@@ -378,14 +445,24 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
       );
       let result = applyRoundRobin(tracksByPlaylist, playlist.rules);
 
-      // Fetch audio features if any audio_feature rules exist
-      const audioRules = playlist.rules.filter((r) => r.type === "audio_feature");
+      // Fetch audio features if needed by any sort or audio_feature rule
+      const needsAudio = playlist.rules.some(
+        (r) =>
+          (r.type === "sort" && (r.method === "bpm-asc" || r.method === "bpm-desc")) ||
+          r.type === "audio_feature"
+      );
       let featureMap: Map<string, TrackFeature> | null = null;
-      if (audioRules.length > 0) {
+      if (needsAudio) {
         const features = await fetchAudioFeatures(result);
         featureMap = new Map(result.map((t, i) => [trackKey(t), features[i]]));
       }
 
+      // Sort rules run first (establish baseline order), chained in list order
+      for (const rule of playlist.rules) {
+        if (rule.type === "sort") result = applySort(result, rule, featureMap);
+      }
+
+      // Then spacing and audio feature rules
       for (const rule of playlist.rules) {
         if (rule.type === "spacing") result = applySpacing(result, rule);
         else if (rule.type === "audio_feature" && featureMap) result = applyAudioFeature(result, rule, featureMap);
