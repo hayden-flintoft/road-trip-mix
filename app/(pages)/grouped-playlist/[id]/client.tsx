@@ -249,11 +249,11 @@ function seededRng(seed: number) {
   };
 }
 
-function applySort(
-  tracks: TrackedTrack[],
+function applySort<T extends SimplifiedTrack>(
+  tracks: T[],
   rule: SortRule,
   featureMap: Map<string, TrackFeature> | null
-): TrackedTrack[] {
+): T[] {
   const result = [...tracks];
 
   switch (rule.method) {
@@ -431,15 +431,14 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
     if (!playlist || !group || !session?.accessToken) return;
     setGenerating(true);
     try {
-      const tracksByPlaylist = await Promise.all(
+      const rawByPlaylist = await Promise.all(
         group.playlistIds.map(async (pid) => ({
           playlistId: pid,
           tracks: await getPlaylistTracksClient(session.accessToken!, pid),
         }))
       );
-      let result = applyRoundRobin(tracksByPlaylist, playlist.rules);
 
-      // Fetch audio features if needed by any sort or audio_feature rule
+      // Build feature map on the flat pre-round-robin pool so BPM sort can use it
       const needsAudio = playlist.rules.some(
         (r) =>
           (r.type === "sort" && (r.method === "bpm-asc" || r.method === "bpm-desc")) ||
@@ -447,16 +446,24 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
       );
       let featureMap: Map<string, TrackFeature> | null = null;
       if (needsAudio) {
-        const features = await fetchAudioFeatures(result);
-        featureMap = new Map(result.map((t, i) => [trackKey(t), features[i]]));
+        const allTracks = rawByPlaylist.flatMap((p) => p.tracks);
+        const features = await fetchAudioFeatures(allTracks);
+        featureMap = new Map(allTracks.map((t, i) => [trackKey(t), features[i]]));
       }
 
-      // Sort rules run first (establish baseline order), chained in list order
-      for (const rule of playlist.rules) {
-        if (rule.type === "sort") result = applySort(result, rule, featureMap);
-      }
+      // Sort rules sort each source playlist independently — round-robin then
+      // draws from these pre-sorted queues, preserving interleaving
+      const sortedByPlaylist = rawByPlaylist.map(({ playlistId, tracks }) => {
+        let sorted: SimplifiedTrack[] = tracks;
+        for (const rule of playlist.rules) {
+          if (rule.type === "sort") sorted = applySort(sorted, rule, featureMap);
+        }
+        return { playlistId, tracks: sorted };
+      });
 
-      // Then spacing and audio feature rules
+      let result = applyRoundRobin(sortedByPlaylist, playlist.rules);
+
+      // Spacing and audio feature rules refine the combined result
       for (const rule of playlist.rules) {
         if (rule.type === "spacing") result = applySpacing(result, rule);
         else if (rule.type === "audio_feature" && featureMap) result = applyAudioFeature(result, rule, featureMap);
