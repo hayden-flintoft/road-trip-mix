@@ -24,7 +24,7 @@ type TrackFeature = {
   acousticness: number;
 } | null;
 
-type PlaylistStat = { name: string; count: number; durationMs: number };
+type PlaylistStat = { count: number; durationMs: number };
 
 const SEGMENT_COLORS = [
   "#1db954", "#3d87e4", "#f0a500", "#e25f5f", "#a855f7", "#14b8a6", "#f97316",
@@ -403,28 +403,13 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
     ).then((results) => {
       const map = new Map<string, PlaylistStat>();
       results.forEach(({ id: pid, count, durationMs }) => {
-        const name = groupPlaylists.find((p) => p.id === pid)?.name ?? pid;
-        map.set(pid, { name, count, durationMs });
+        map.set(pid, { count, durationMs });
       });
       setPlaylistStats(map);
       setLoadingStats(false);
     }).catch(() => setLoadingStats(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, group]);
-
-  // Update stat names when groupPlaylists resolves
-  useEffect(() => {
-    if (!playlistStats || groupPlaylists.length === 0) return;
-    setPlaylistStats((prev) => {
-      if (!prev) return prev;
-      const next = new Map(prev);
-      groupPlaylists.forEach(({ id: pid, name }) => {
-        const stat = next.get(pid);
-        if (stat && name !== pid) next.set(pid, { ...stat, name });
-      });
-      return next;
-    });
-  }, [groupPlaylists]);
 
   const saveRules = (rules: Rule[]) => {
     const all = loadGroupedPlaylists();
@@ -554,13 +539,14 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
                       {group.playlistIds.map((pid, i) => {
                         const stat = playlistStats.get(pid);
                         if (!stat) return null;
+                        const name = groupPlaylists.find((p) => p.id === pid)?.name ?? pid;
                         return (
                           <p key={pid} className="grouped-playlist-stats__row">
                             <span
                               className="grouped-playlist-stats__dot"
                               style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
                             />
-                            <span className="grouped-playlist-stats__name">{stat.name}</span>
+                            <span className="grouped-playlist-stats__name">{name}</span>
                             <span className="grouped-playlist-stats__meta">
                               {stat.count} song{stat.count !== 1 ? "s" : ""} · {formatTotalDuration(stat.durationMs)}
                             </span>

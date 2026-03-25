@@ -245,6 +245,18 @@
   margin-right: 12px;
 }
 
+/* ── Section labels ── */
+
+.rules-modal__section-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+
 /* ── Add rule section ── */
 
 .rules-modal__add {

@@ -407,8 +407,15 @@ function AudioFeatureRuleItem({
   );
 }
 
+function normalizeRules(rules: Rule[]): Rule[] {
+  return [
+    ...rules.filter((r) => r.type === "sort"),
+    ...rules.filter((r) => r.type !== "sort"),
+  ];
+}
+
 export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }: Props) {
-  const [rules, setRules] = useState<Rule[]>(playlist.rules);
+  const [rules, setRules] = useState<Rule[]>(normalizeRules(playlist.rules));
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -420,24 +427,24 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
   };
 
   const addRoundRobin = () => {
-    setRules((prev) => [
+    setRules((prev) => normalizeRules([
       ...prev,
       { id: crypto.randomUUID(), type: "round_robin", defaultN: 1, overrides: {} },
-    ]);
+    ]));
   };
 
   const addSpacing = () => {
-    setRules((prev) => [
+    setRules((prev) => normalizeRules([
       ...prev,
       { id: crypto.randomUUID(), type: "spacing", n: 3, applyToArtist: true, applyToAlbum: false },
-    ]);
+    ]));
   };
 
   const addAudioFeature = () => {
-    setRules((prev) => [
+    setRules((prev) => normalizeRules([
       ...prev,
       { id: crypto.randomUUID(), type: "audio_feature", feature: "tempo", direction: "asc", missingPlacement: "disperse" },
-    ]);
+    ]));
   };
 
   const updateRule = (index: number, updated: Rule) => {
@@ -479,15 +486,34 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
             <p className="rules-modal__empty">No rules yet. Add one below.</p>
           ) : (
             <div className="rules-modal__list">
-              {rules.map((rule, i) => (
-                <div
-                  key={rule.id}
-                  draggable
-                  onDragStart={() => setDragIndex(i)}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverIndex(i); }}
-                  onDrop={() => { if (dragIndex !== null && dragIndex !== i) reorder(dragIndex, i); setDragIndex(null); setDragOverIndex(null); }}
-                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                >
+              {rules.map((rule, i) => {
+                const isSort = rule.type === "sort";
+                const prevIsSort = i > 0 && rules[i - 1].type === "sort";
+                const hasSorts = rules.some((r) => r.type === "sort");
+                const hasTransforms = rules.some((r) => r.type !== "sort");
+                const sameSection = dragIndex !== null && (rules[dragIndex].type === "sort") === isSort;
+
+                return (
+                <div key={rule.id}>
+                  {i === 0 && hasSorts && (
+                    <p className="rules-modal__section-label">Sort</p>
+                  )}
+                  {i > 0 && !isSort && prevIsSort && hasTransforms && (
+                    <p className="rules-modal__section-label">Transform</p>
+                  )}
+                  {i === 0 && !hasSorts && hasTransforms && (
+                    <p className="rules-modal__section-label">Transform</p>
+                  )}
+                  <div
+                    draggable
+                    onDragStart={() => setDragIndex(i)}
+                    onDragOver={(e) => { e.preventDefault(); if (sameSection) setDragOverIndex(i); }}
+                    onDrop={() => {
+                      if (dragIndex !== null && dragIndex !== i && sameSection) reorder(dragIndex, i);
+                      setDragIndex(null); setDragOverIndex(null);
+                    }}
+                    onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                  >
                   {rule.type === "sort" && (
                     <SortRuleItem
                       rule={rule}
@@ -495,7 +521,7 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                       onDelete={() => deleteRule(i)}
                       dragHandleProps={{}}
                       isDragging={dragIndex === i}
-                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i && sameSection}
                     />
                   )}
                   {rule.type === "round_robin" && (
@@ -506,7 +532,7 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                       onDelete={() => deleteRule(i)}
                       dragHandleProps={{}}
                       isDragging={dragIndex === i}
-                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i && sameSection}
                     />
                   )}
                   {rule.type === "spacing" && (
@@ -515,7 +541,7 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                       onChange={(updated) => updateRule(i, updated)}
                       onDelete={() => deleteRule(i)}
                       isDragging={dragIndex === i}
-                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i && sameSection}
                     />
                   )}
                   {rule.type === "audio_feature" && (
@@ -524,11 +550,13 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
                       onChange={(updated) => updateRule(i, updated)}
                       onDelete={() => deleteRule(i)}
                       isDragging={dragIndex === i}
-                      isDragOver={dragOverIndex === i && dragIndex !== i}
+                      isDragOver={dragOverIndex === i && dragIndex !== i && sameSection}
                     />
                   )}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
