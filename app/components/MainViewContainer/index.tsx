@@ -207,13 +207,15 @@ export default function MainViewContainer() {
   const [creatingGroupedIn, setCreatingGroupedIn] = useState<string | null>(null);
   const [newGpName, setNewGpName] = useState("");
 
+  // Track which token we last fetched for to prevent React StrictMode double-fire
+  const fetchedTokenRef = useRef<string | null>(null);
+
   const fetchPlaylists = async (token: string) => {
     setLoadingPlaylists(true);
     setPlaylistError(null);
     try {
       const result = await getAllPlaylists(token);
       setPlaylists(result);
-      if (result.length === 0) setPlaylistError("No playlists returned. Spotify may be rate-limiting — try again in a moment.");
     } catch (e) {
       setPlaylistError(e instanceof Error ? e.message : "Failed to load playlists.");
     } finally {
@@ -222,7 +224,11 @@ export default function MainViewContainer() {
   };
 
   useEffect(() => {
-    if (session?.accessToken) fetchPlaylists(session.accessToken);
+    if (!session?.accessToken) return;
+    // Skip if we already fetched for this token (prevents React StrictMode double-fire)
+    if (fetchedTokenRef.current === session.accessToken) return;
+    fetchedTokenRef.current = session.accessToken;
+    fetchPlaylists(session.accessToken);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.accessToken]);
 
@@ -396,7 +402,10 @@ export default function MainViewContainer() {
           <span style={{ color: "#e25f5f" }}>{playlistError}</span>
           {session?.accessToken && (
             <button
-              onClick={() => fetchPlaylists(session.accessToken!)}
+              onClick={() => {
+                fetchedTokenRef.current = null;
+                fetchPlaylists(session.accessToken!);
+              }}
               className="ml-3 underline"
               style={{ color: "var(--text-base)" }}
             >

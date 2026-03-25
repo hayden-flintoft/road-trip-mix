@@ -7,7 +7,7 @@ export async function getPlaylistMeta(
 ): Promise<PlaylistMeta | null> {
   const res = await fetch(
     `https://api.spotify.com/v1/playlists/${id}?fields=id,name,description,images,owner,tracks.total`,
-    { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
+    { headers: { Authorization: `Bearer ${accessToken}` }, next: { revalidate: 300 } }
   );
   if (!res.ok) return null;
   return res.json();
@@ -22,7 +22,7 @@ async function getPlaylistTracks(
 
   const first = await fetch(
     `https://api.spotify.com/v1/playlists/${id}/items?limit=${limit}&offset=0`,
-    { headers, cache: "no-store" }
+    { headers, next: { revalidate: 300 } }
   );
   if (!first.ok) {
     const err = await first.json().catch(() => ({}));
@@ -42,7 +42,7 @@ async function getPlaylistTracks(
       offsets.map((offset) =>
         fetch(
           `https://api.spotify.com/v1/playlists/${id}/items?limit=${limit}&offset=${offset}`,
-          { headers, cache: "no-store" }
+          { headers, next: { revalidate: 300 } }
         )
           .then((r) => r.json())
           .then((d) => (d.items ?? []) as TrackItem[])

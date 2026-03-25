@@ -9,10 +9,12 @@ export async function getAllPlaylists(accessToken: string): Promise<Playlist[]> 
     { headers }
   );
   if (!first.ok) {
-    const msg = first.status === 429
-      ? "Spotify rate limit hit — please wait a moment and try again."
-      : `Spotify returned ${first.status}`;
-    throw new Error(msg);
+    if (first.status === 429) {
+      const retryAfter = first.headers.get("Retry-After");
+      const wait = retryAfter ? ` Try again in ${retryAfter}s.` : " Try again shortly.";
+      throw new Error(`Spotify rate limit hit.${wait}`);
+    }
+    throw new Error(`Spotify returned ${first.status} — try signing out and back in.`);
   }
   const firstData = await first.json();
   const total: number = firstData.total ?? 0;
