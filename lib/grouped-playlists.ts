@@ -45,6 +45,8 @@ export type GroupedPlaylist = {
   groupId: string;
   rules: Rule[];
   createdAt: string;
+  spotifyPlaylistId?: string;
+  lastSyncedAt?: string;
 };
 
 const GP_KEY = "road-trip-mix:grouped-playlists";

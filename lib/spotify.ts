@@ -1,10 +1,20 @@
 import type { Playlist } from "@/app/components/PlaylistBox";
 
+async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+  const res = await fetch(url, options);
+  if (res.status === 429 && retries > 0) {
+    const retryAfter = parseInt(res.headers.get("Retry-After") ?? "2", 10);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000));
+    return fetchWithRetry(url, options, retries - 1);
+  }
+  return res;
+}
+
 export async function getAllPlaylists(accessToken: string): Promise<Playlist[]> {
   const headers = { Authorization: `Bearer ${accessToken}` };
   const limit = 50;
 
-  const first = await fetch(
+  const first = await fetchWithRetry(
     `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=0`,
     { headers, cache: "no-store" }
   );
@@ -60,10 +70,18 @@ export type SimplifiedTrack = {
   duration_ms: number;
 };
 
+// In-memory cache: keyed by `${accessToken}:${playlistId}` so it's scoped per
+// session and invalidated automatically when the token rotates.
+const trackCache = new Map<string, SimplifiedTrack[]>();
+
 export async function getPlaylistTracksClient(
   accessToken: string,
   playlistId: string
 ): Promise<SimplifiedTrack[]> {
+  const cacheKey = `${accessToken}:${playlistId}`;
+  const cached = trackCache.get(cacheKey);
+  if (cached) return cached;
+
   const headers = { Authorization: `Bearer ${accessToken}` };
   const limit = 50;
 
@@ -94,5 +112,7 @@ export async function getPlaylistTracksClient(
     items.push(...rest.flat());
   }
 
-  return items.filter((i) => i.item != null).map((i) => i.item!);
+  const result = items.filter((i) => i.item != null).map((i) => i.item!);
+  trackCache.set(cacheKey, result);
+  return result;
 }
