@@ -60,9 +60,11 @@ export type SimplifiedTrack = {
   duration_ms: number;
 };
 
-// In-memory cache: keyed by `${accessToken}:${playlistId}` so it's scoped per
-// session and invalidated automatically when the token rotates.
+// In-memory cache keyed by `${accessToken}:${playlistId}` — scoped per session.
 const trackCache = new Map<string, SimplifiedTrack[]>();
+
+// Per-token rate-limit cooldown: don't retry until this timestamp (ms).
+const rateLimitedUntil = new Map<string, number>();
 
 export async function getPlaylistTracksClient(
   accessToken: string,
@@ -72,6 +74,10 @@ export async function getPlaylistTracksClient(
   const cached = trackCache.get(cacheKey);
   if (cached) return cached;
 
+  // Honour rate-limit cooldown — don't hammer Spotify while throttled.
+  const cooldown = rateLimitedUntil.get(accessToken) ?? 0;
+  if (Date.now() < cooldown) return [];
+
   const headers = { Authorization: `Bearer ${accessToken}` };
   const limit = 50;
 
@@ -79,7 +85,13 @@ export async function getPlaylistTracksClient(
     `https://api.spotify.com/v1/playlists/${playlistId}/items?limit=${limit}&offset=0`,
     { headers }
   );
-  if (!first.ok) return [];
+  if (!first.ok) {
+    if (first.status === 429) {
+      const retryAfter = parseInt(first.headers.get("Retry-After") ?? "30", 10);
+      rateLimitedUntil.set(accessToken, Date.now() + retryAfter * 1000);
+    }
+    return [];
+  }
   const firstData = await first.json();
   const total: number = firstData.total ?? 0;
   const items: { item: SimplifiedTrack | null }[] = firstData.items ?? [];
