@@ -6,9 +6,14 @@ export async function getAllPlaylists(accessToken: string): Promise<Playlist[]> 
 
   const first = await fetch(
     `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=0`,
-    { headers, next: { revalidate: 60 } }
+    { headers }
   );
-  if (!first.ok) return [];
+  if (!first.ok) {
+    const msg = first.status === 429
+      ? "Spotify rate limit hit — please wait a moment and try again."
+      : `Spotify returned ${first.status}`;
+    throw new Error(msg);
+  }
   const firstData = await first.json();
   const total: number = firstData.total ?? 0;
   const items: Playlist[] = firstData.items ?? [];

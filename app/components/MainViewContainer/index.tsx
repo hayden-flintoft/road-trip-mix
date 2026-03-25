@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import PlaylistBox, { type Playlist } from "../PlaylistBox";
 import PlaylistListItem from "../PlaylistListItem";
 import GroupedPlaylistCard from "../GroupedPlaylistCard";
@@ -9,6 +10,7 @@ import {
   saveGroupedPlaylists,
   type GroupedPlaylist,
 } from "@/lib/grouped-playlists";
+import { getAllPlaylists } from "@/lib/spotify";
 import "./style.css";
 
 type Group = { id: string; name: string; playlistIds: string[] };
@@ -16,8 +18,6 @@ type View = "grid" | "list";
 
 const GROUPS_KEY = "road-trip-mix:groups";
 const VIEW_KEY = "road-trip-mix:view";
-
-type Props = { playlists: Playlist[] };
 
 // ── Group header with inline rename ──────────────────────────────────────────
 
@@ -196,12 +196,35 @@ function GroupButton({
 
 // ── Main container ────────────────────────────────────────────────────────────
 
-export default function MainViewContainer({ playlists }: Props) {
+export default function MainViewContainer() {
+  const { data: session } = useSession();
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+  const [playlistError, setPlaylistError] = useState<string | null>(null);
   const [view, setView] = useState<View>("grid");
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupedPlaylists, setGroupedPlaylists] = useState<GroupedPlaylist[]>([]);
   const [creatingGroupedIn, setCreatingGroupedIn] = useState<string | null>(null);
   const [newGpName, setNewGpName] = useState("");
+
+  const fetchPlaylists = async (token: string) => {
+    setLoadingPlaylists(true);
+    setPlaylistError(null);
+    try {
+      const result = await getAllPlaylists(token);
+      setPlaylists(result);
+      if (result.length === 0) setPlaylistError("No playlists returned. Spotify may be rate-limiting — try again in a moment.");
+    } catch (e) {
+      setPlaylistError(e instanceof Error ? e.message : "Failed to load playlists.");
+    } finally {
+      setLoadingPlaylists(false);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.accessToken) fetchPlaylists(session.accessToken);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.accessToken]);
 
   useEffect(() => {
     try {
@@ -317,7 +340,7 @@ export default function MainViewContainer({ playlists }: Props) {
       {/* Toolbar */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold" style={{ color: "var(--text-base)" }}>
-          Your Playlists
+          {loadingPlaylists ? "Loading playlists…" : "Your Playlists"}
         </h2>
         <div className="flex items-center gap-1">
           <button
@@ -364,6 +387,22 @@ export default function MainViewContainer({ playlists }: Props) {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Error / retry */}
+      {playlistError && (
+        <div className="mb-6" style={{ color: "var(--text-subdued)", fontSize: "0.875rem" }}>
+          <span style={{ color: "#e25f5f" }}>{playlistError}</span>
+          {session?.accessToken && (
+            <button
+              onClick={() => fetchPlaylists(session.accessToken!)}
+              className="ml-3 underline"
+              style={{ color: "var(--text-base)" }}
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 
