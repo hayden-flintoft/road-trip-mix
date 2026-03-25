@@ -1,22 +1,12 @@
 import type { Playlist } from "@/app/components/PlaylistBox";
 
-async function fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
-  const res = await fetch(url, options);
-  if (res.status === 429 && retries > 0) {
-    const retryAfter = parseInt(res.headers.get("Retry-After") ?? "2", 10);
-    await new Promise((r) => setTimeout(r, retryAfter * 1000));
-    return fetchWithRetry(url, options, retries - 1);
-  }
-  return res;
-}
-
 export async function getAllPlaylists(accessToken: string): Promise<Playlist[]> {
   const headers = { Authorization: `Bearer ${accessToken}` };
   const limit = 50;
 
-  const first = await fetchWithRetry(
+  const first = await fetch(
     `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=0`,
-    { headers, cache: "no-store" }
+    { headers, next: { revalidate: 60 } }
   );
   if (!first.ok) return [];
   const firstData = await first.json();
@@ -32,7 +22,7 @@ export async function getAllPlaylists(accessToken: string): Promise<Playlist[]> 
       offsets.map((offset) =>
         fetch(
           `https://api.spotify.com/v1/me/playlists?limit=${limit}&offset=${offset}`,
-          { headers, cache: "no-store" }
+          { headers, next: { revalidate: 60 } }
         )
           .then((r) => r.json())
           .then((d) => (d.items ?? []) as Playlist[])

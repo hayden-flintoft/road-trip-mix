@@ -9,6 +9,52 @@
   padding: 24px;
 }
 
+@media (max-width: 639px) {
+  .rules-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .rules-modal {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .rules-modal__body {
+    flex-direction: column;
+  }
+
+  .rules-modal__toolbox {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 12px;
+    gap: 8px;
+    /* hide scrollbar but keep it functional */
+    scrollbar-width: none;
+  }
+
+  .rules-modal__toolbox::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rules-modal__toolbox-label {
+    display: none;
+  }
+
+  .rules-modal__add-btn {
+    white-space: nowrap;
+    width: auto;
+    flex-shrink: 0;
+    padding: 7px 12px;
+  }
+}
+
 .rules-modal {
   background-color: var(--background-elevated-base);
   border: 1px solid rgba(255, 255, 255, 0.1);

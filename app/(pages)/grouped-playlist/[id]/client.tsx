@@ -61,7 +61,7 @@ function DonutChart({
   });
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`}>
       <g style={{ transform: `rotate(-90deg)`, transformOrigin: `${center}px ${center}px` }}>
         <circle
           cx={center} cy={center} r={r}
@@ -626,11 +626,8 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
           <Link href="/" className="back-link text-sm mb-6 inline-block transition-colors hover:text-white">
             ← Back
           </Link>
-          <div className="flex gap-6 items-end mt-4">
-            <div
-              className="flex-shrink-0 rounded flex items-center justify-center"
-              style={{ width: 232, height: 232, background: "linear-gradient(135deg, #1a1a2e, #0f3460)", position: "relative" }}
-            >
+          <div className="flex flex-col sm:flex-row gap-6 sm:items-end items-center mt-4">
+            <div className="playlist-chart-container">
               {playlistStats && totalStats && group ? (
                 <DonutChart
                   segments={group.playlistIds.map((pid, i) => ({
@@ -647,7 +644,7 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
                 </svg>
               )}
             </div>
-            <div className="pb-2">
+            <div className="pb-2 text-center sm:text-left">
               <p className="playlist-label text-xs font-bold uppercase tracking-widest mb-2">
                 Grouped Playlist
               </p>
@@ -707,7 +704,7 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-3 px-8 pb-6">
+        <div className="flex flex-wrap items-center gap-3 px-4 sm:px-8 pb-6">
           <button
             onClick={() => setShowRules(true)}
             className="px-5 py-2 rounded-full text-sm font-semibold border transition-colors"
