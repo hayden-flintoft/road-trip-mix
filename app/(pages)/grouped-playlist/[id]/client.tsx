@@ -194,15 +194,29 @@ function applyAudioFeature(
       }
       return result;
     }
-    case "disperse": {
+    case "disperse":
+    case "disperse-start":
+    case "disperse-end": {
       if (missing.length === 0) return known;
       if (known.length === 0) return missing;
       const total = known.length + missing.length;
+
+      // Determine the zone [zoneStart, zoneStart + zoneLen) where missing tracks are spread
+      let zoneStart = 0;
+      let zoneLen = total;
+      if (rule.missingPlacement === "disperse-start") {
+        zoneLen = Math.ceil(total / 2);
+      } else if (rule.missingPlacement === "disperse-end") {
+        zoneLen = Math.ceil(total / 2);
+        zoneStart = total - zoneLen;
+      }
+
       const insertAt = new Set(
         Array.from({ length: missing.length }, (_, i) =>
-          Math.round((0.5 + i) * total / missing.length)
+          zoneStart + Math.round((0.5 + i) * zoneLen / missing.length)
         ).map((p) => Math.min(p, total - 1))
       );
+
       const result: SimplifiedTrack[] = [];
       let ki = 0, mi = 0;
       for (let i = 0; i < total; i++) {

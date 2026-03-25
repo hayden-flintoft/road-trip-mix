@@ -18,7 +18,7 @@ export type AudioFeatureRule = {
   type: "audio_feature";
   feature: "tempo" | "danceability" | "acousticness";
   direction: "asc" | "desc" | "asc-desc";
-  missingPlacement: "first" | "last" | "alternate" | "disperse";
+  missingPlacement: "first" | "last" | "alternate" | "disperse" | "disperse-start" | "disperse-end";
 };
 
 export type Rule = RoundRobinRule | SpacingRule | AudioFeatureRule;

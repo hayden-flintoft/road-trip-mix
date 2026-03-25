@@ -183,6 +183,8 @@ const MISSING_LABELS: Record<AudioFeatureRule["missingPlacement"], string> = {
   last: "Place last",
   alternate: "Alternate with sorted",
   disperse: "Disperse evenly",
+  "disperse-start": "Disperse toward start",
+  "disperse-end": "Disperse toward end",
 };
 
 function AudioFeatureRuleItem({
@@ -256,6 +258,8 @@ function AudioFeatureRuleItem({
               <option value="last">Place last</option>
               <option value="alternate">Alternate with sorted</option>
               <option value="disperse">Disperse evenly</option>
+              <option value="disperse-start">Disperse toward start</option>
+              <option value="disperse-end">Disperse toward end</option>
             </select>
           </label>
         </div>
