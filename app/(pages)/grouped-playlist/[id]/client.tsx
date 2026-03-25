@@ -12,7 +12,7 @@ import {
   type AudioFeatureRule,
   type SortRule,
 } from "@/lib/grouped-playlists";
-import { getPlaylistTracksClient, getPlaylistMeta, type PlaylistMeta, type SimplifiedTrack } from "@/lib/spotify";
+import { getPlaylistTracksClient, getPlaylistMeta, type SimplifiedTrack } from "@/lib/spotify";
 import RulesModal from "@/app/components/RulesModal";
 import "../../playlist/[id]/style.css";
 
