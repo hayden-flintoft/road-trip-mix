@@ -451,15 +451,25 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
         featureMap = new Map(allTracks.map((t, i) => [trackKey(t), features[i]]));
       }
 
-      // Sort rules sort each source playlist independently — round-robin then
-      // draws from these pre-sorted queues, preserving interleaving
-      const sortedByPlaylist = rawByPlaylist.map(({ playlistId, tracks }) => {
-        let sorted: SimplifiedTrack[] = tracks;
-        for (const rule of playlist.rules) {
-          if (rule.type === "sort") sorted = applySort(sorted, rule, featureMap);
-        }
-        return { playlistId, tracks: sorted };
-      });
+      // Sort rules operate on the full combined pool so a single shuffle (or
+      // any other sort) considers all tracks together. Then re-split into
+      // per-playlist queues (preserving the new combined order) so round-robin
+      // draws tracks in the sorted order from each playlist.
+      const allTracks = rawByPlaylist.flatMap((p) => p.tracks);
+      const trackPlaylist = new Map<SimplifiedTrack, string>();
+      rawByPlaylist.forEach(({ playlistId, tracks }) =>
+        tracks.forEach((t) => trackPlaylist.set(t, playlistId))
+      );
+
+      let sortedPool: SimplifiedTrack[] = [...allTracks];
+      for (const rule of playlist.rules) {
+        if (rule.type === "sort") sortedPool = applySort(sortedPool, rule, featureMap);
+      }
+
+      const sortedByPlaylist = rawByPlaylist.map(({ playlistId }) => ({
+        playlistId,
+        tracks: sortedPool.filter((t) => trackPlaylist.get(t) === playlistId),
+      }));
 
       let result = applyRoundRobin(sortedByPlaylist, playlist.rules);
 
