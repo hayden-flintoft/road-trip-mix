@@ -12,7 +12,7 @@ import {
   type AudioFeatureRule,
   type SortRule,
 } from "@/lib/grouped-playlists";
-import { getPlaylistTracksClient, getPlaylistNames, type SimplifiedTrack } from "@/lib/spotify";
+import { getPlaylistTracksClient, getPlaylistMeta, type PlaylistMeta, type SimplifiedTrack } from "@/lib/spotify";
 import RulesModal from "@/app/components/RulesModal";
 import "../../playlist/[id]/style.css";
 
@@ -25,8 +25,6 @@ type TrackFeature = {
 } | null;
 
 type TrackedTrack = SimplifiedTrack & { sourcePlaylistId: string };
-
-type PlaylistStat = { count: number; durationMs: number };
 
 const SEGMENT_COLORS = [
   "#1db954", "#3d87e4", "#f0a500", "#e25f5f", "#a855f7", "#14b8a6", "#f97316",
@@ -433,9 +431,7 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
   const { data: session } = useSession();
   const [playlist, setPlaylist] = useState<GroupedPlaylist | null>(null);
   const [group, setGroup] = useState<Group | null>(null);
-  const [groupPlaylists, setGroupPlaylists] = useState<{ id: string; name: string }[]>([]);
-  const [playlistStats, setPlaylistStats] = useState<Map<string, PlaylistStat> | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
+  const [groupPlaylists, setGroupPlaylists] = useState<{ id: string; name: string; total: number }[]>([]);
   const [showRules, setShowRules] = useState(false);
   const [generated, setGenerated] = useState<TrackedTrack[] | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -461,40 +457,22 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
         const g = groups.find((gr) => gr.id === found.groupId) ?? null;
         setGroup(g);
         if (g) {
-          // Set IDs as placeholder names until Spotify lookup resolves
-          setGroupPlaylists(g.playlistIds.map((pid) => ({ id: pid, name: pid })));
+          setGroupPlaylists(g.playlistIds.map((pid) => ({ id: pid, name: pid, total: 0 })));
         }
       } catch {}
     }
   }, [id]);
 
-  // Resolve human-readable playlist names once session is available
+  // One lightweight call per playlist: gets name + track count (no full track fetch)
   useEffect(() => {
     if (!session?.accessToken || !group) return;
-    getPlaylistNames(session.accessToken, group.playlistIds).then((nameMap) => {
-      setGroupPlaylists(group.playlistIds.map((pid) => ({ id: pid, name: nameMap[pid] ?? pid })));
+    getPlaylistMeta(session.accessToken, group.playlistIds).then((meta) => {
+      setGroupPlaylists(group.playlistIds.map((pid) => ({
+        id: pid,
+        name: meta[pid]?.name ?? pid,
+        total: meta[pid]?.total ?? 0,
+      })));
     });
-  }, [session, group]);
-
-  // Fetch per-playlist stats (track count + total duration) in background
-  useEffect(() => {
-    if (!session?.accessToken || !group) return;
-    setLoadingStats(true);
-    Promise.all(
-      group.playlistIds.map(async (pid) => {
-        const tracks = await getPlaylistTracksClient(session.accessToken!, pid);
-        const durationMs = tracks.reduce((sum, t) => sum + t.duration_ms, 0);
-        return { id: pid, count: tracks.length, durationMs };
-      })
-    ).then((results) => {
-      const map = new Map<string, PlaylistStat>();
-      results.forEach(({ id: pid, count, durationMs }) => {
-        map.set(pid, { count, durationMs });
-      });
-      setPlaylistStats(map);
-      setLoadingStats(false);
-    }).catch(() => setLoadingStats(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, group]);
 
   const saveRules = (rules: Rule[]) => {
@@ -597,15 +575,7 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
     );
   }
 
-  const totalStats = playlistStats && group
-    ? group.playlistIds.reduce(
-        (acc, pid) => {
-          const s = playlistStats.get(pid);
-          return s ? { count: acc.count + s.count, durationMs: acc.durationMs + s.durationMs } : acc;
-        },
-        { count: 0, durationMs: 0 }
-      )
-    : null;
+  const totalTrackCount = groupPlaylists.reduce((s, p) => s + p.total, 0);
 
   return (
     <div className="px-6 py-6">
@@ -628,14 +598,14 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
           </Link>
           <div className="flex flex-col sm:flex-row gap-6 sm:items-end items-center mt-4">
             <div className="playlist-chart-container">
-              {playlistStats && totalStats && group ? (
+              {totalTrackCount > 0 ? (
                 <DonutChart
-                  segments={group.playlistIds.map((pid, i) => ({
-                    value: playlistStats.get(pid)?.durationMs ?? 0,
+                  segments={groupPlaylists.map((p, i) => ({
+                    value: p.total,
                     color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
                   }))}
-                  totalLabel={formatTotalDuration(totalStats.durationMs)}
-                  subtotalLabel={`${totalStats.count} songs`}
+                  totalLabel={`${totalTrackCount}`}
+                  subtotalLabel="tracks"
                   size={232}
                 />
               ) : (
@@ -656,41 +626,31 @@ export default function GroupedPlaylistClient({ id }: { id: string }) {
               )}
 
               {/* Per-playlist stats */}
-              {group && (
+              {groupPlaylists.length > 0 && (
                 <div className="grouped-playlist-stats">
-                  {loadingStats && !playlistStats && (
-                    <p className="grouped-playlist-stats__loading">Loading stats…</p>
-                  )}
-                  {playlistStats && (
-                    <>
-                      {group.playlistIds.map((pid, i) => {
-                        const stat = playlistStats.get(pid);
-                        if (!stat) return null;
-                        const name = groupPlaylists.find((p) => p.id === pid)?.name ?? pid;
-                        return (
-                          <p key={pid} className="grouped-playlist-stats__row">
-                            <span
-                              className="grouped-playlist-stats__dot"
-                              style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
-                            />
-                            <span className="grouped-playlist-stats__name">{name}</span>
-                            <span className="grouped-playlist-stats__meta">
-                              {stat.count} song{stat.count !== 1 ? "s" : ""} · {formatTotalDuration(stat.durationMs)}
-                            </span>
-                          </p>
-                        );
-                      })}
-                      {totalStats && group.playlistIds.length > 1 && (
-                        <p className="grouped-playlist-stats__total">
-                          {totalStats.count} songs total · {formatTotalDuration(totalStats.durationMs)}
-                        </p>
+                  {groupPlaylists.map((p, i) => (
+                    <p key={p.id} className="grouped-playlist-stats__row">
+                      <span
+                        className="grouped-playlist-stats__dot"
+                        style={{ background: SEGMENT_COLORS[i % SEGMENT_COLORS.length] }}
+                      />
+                      <span className="grouped-playlist-stats__name">{p.name}</span>
+                      {p.total > 0 && (
+                        <span className="grouped-playlist-stats__meta">
+                          {p.total} song{p.total !== 1 ? "s" : ""}
+                        </span>
                       )}
-                    </>
+                    </p>
+                  ))}
+                  {groupPlaylists.length > 1 && totalTrackCount > 0 && (
+                    <p className="grouped-playlist-stats__total">
+                      {totalTrackCount} songs total
+                    </p>
                   )}
                 </div>
               )}
 
-              <p className="playlist-owner text-sm font-semibold" style={{ marginTop: playlistStats ? "12px" : undefined }}>
+              <p className="playlist-owner text-sm font-semibold" style={{ marginTop: groupPlaylists.length > 0 ? "12px" : undefined }}>
                 {playlist.rules.length} rule{playlist.rules.length !== 1 ? "s" : ""}
                 {generated && (
                   <span className="playlist-owner-sub font-normal">
