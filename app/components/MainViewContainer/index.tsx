@@ -209,19 +209,42 @@ export default function MainViewContainer() {
 
   // Track which token we last fetched for to prevent React StrictMode double-fire
   const fetchedTokenRef = useRef<string | null>(null);
+  const [retryIn, setRetryIn] = useState<number | null>(null);
 
   const fetchPlaylists = async (token: string) => {
     setLoadingPlaylists(true);
     setPlaylistError(null);
+    setRetryIn(null);
     try {
       const result = await getAllPlaylists(token);
       setPlaylists(result);
     } catch (e) {
-      setPlaylistError(e instanceof Error ? e.message : "Failed to load playlists.");
+      const msg = e instanceof Error ? e.message : "Failed to load playlists.";
+      setPlaylistError(msg);
+      // Start auto-retry countdown: parse seconds from message or default 30
+      if (msg.includes("rate limit")) {
+        const match = msg.match(/(\d+)s/);
+        setRetryIn(match ? parseInt(match[1]) : 30);
+      }
     } finally {
       setLoadingPlaylists(false);
     }
   };
+
+  // Countdown tick
+  useEffect(() => {
+    if (retryIn === null || retryIn <= 0) return;
+    const t = setTimeout(() => setRetryIn((n) => (n !== null ? n - 1 : null)), 1000);
+    return () => clearTimeout(t);
+  }, [retryIn]);
+
+  // Auto-retry when countdown reaches 0
+  useEffect(() => {
+    if (retryIn !== 0 || !session?.accessToken) return;
+    fetchedTokenRef.current = null;
+    fetchPlaylists(session.accessToken);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retryIn]);
 
   useEffect(() => {
     if (!session?.accessToken) return;
@@ -401,16 +424,20 @@ export default function MainViewContainer() {
         <div className="mb-6" style={{ color: "var(--text-subdued)", fontSize: "0.875rem" }}>
           <span style={{ color: "#e25f5f" }}>{playlistError}</span>
           {session?.accessToken && (
-            <button
-              onClick={() => {
-                fetchedTokenRef.current = null;
-                fetchPlaylists(session.accessToken!);
-              }}
-              className="ml-3 underline"
-              style={{ color: "var(--text-base)" }}
-            >
-              Retry
-            </button>
+            retryIn !== null && retryIn > 0 ? (
+              <span className="ml-3">Retrying in {retryIn}s…</span>
+            ) : (
+              <button
+                onClick={() => {
+                  fetchedTokenRef.current = null;
+                  fetchPlaylists(session.accessToken!);
+                }}
+                className="ml-3 underline"
+                style={{ color: "var(--text-base)" }}
+              >
+                Retry
+              </button>
+            )
           )}
         </div>
       )}
