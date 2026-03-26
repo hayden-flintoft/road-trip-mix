@@ -126,6 +126,9 @@ async function pushToSpotify(
   playlistName: string,
   existingPlaylistId?: string
 ): Promise<{ playlistId: string }> {
+  if (!accessToken || accessToken === "undefined" || accessToken === "null") {
+    throw new Error("No Spotify access token — please sign out and back in.");
+  }
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
@@ -144,7 +147,10 @@ async function pushToSpotify(
 
   if (!pid) {
     const meRes = await fetch("https://api.spotify.com/v1/me", { headers });
-    if (!meRes.ok) throw new Error("Could not fetch Spotify profile.");
+    if (!meRes.ok) {
+      const body = await meRes.json().catch(() => ({}));
+      throw new Error(`Could not fetch Spotify profile (${meRes.status}): ${body?.error?.message ?? meRes.statusText}`);
+    }
     const me = await meRes.json();
 
     const createRes = await fetch(
@@ -159,7 +165,10 @@ async function pushToSpotify(
         }),
       }
     );
-    if (!createRes.ok) throw new Error("Could not create Spotify playlist.");
+    if (!createRes.ok) {
+      const body = await createRes.json().catch(() => ({}));
+      throw new Error(`Could not create Spotify playlist (${createRes.status}): ${body?.error?.message ?? createRes.statusText}`);
+    }
     pid = (await createRes.json()).id as string;
   }
 
@@ -171,7 +180,10 @@ async function pushToSpotify(
     headers,
     body: JSON.stringify({ uris: uris.slice(0, 100) }),
   });
-  if (!putRes.ok) throw new Error("Could not update Spotify playlist tracks.");
+  if (!putRes.ok) {
+    const body = await putRes.json().catch(() => ({}));
+    throw new Error(`Could not update Spotify playlist tracks (${putRes.status}): ${body?.error?.message ?? putRes.statusText}`);
+  }
 
   for (let i = 100; i < uris.length; i += 100) {
     await fetch(`https://api.spotify.com/v1/playlists/${pid}/tracks`, {
