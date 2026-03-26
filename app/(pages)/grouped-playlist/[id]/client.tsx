@@ -165,18 +165,18 @@ async function pushToSpotify(
   // Replace tracks in chunks of 100 (Spotify API limit)
   const uris = tracks.map((t) => `spotify:track:${t.id}`);
 
-  const putRes = await fetch(`https://api.spotify.com/v1/playlists/${pid}/tracks`, {
+  const putRes = await fetch(`https://api.spotify.com/v1/playlists/${pid}/items`, {
     method: "PUT",
     headers,
     body: JSON.stringify({ uris: uris.slice(0, 100) }),
   });
   if (!putRes.ok) {
     const body = await putRes.json().catch(() => ({}));
-    throw new Error(`Could not update Spotify playlist tracks (${putRes.status}): ${body?.error?.message ?? putRes.statusText}`);
+    throw new Error(`Could not update Spotify playlist items (${putRes.status}): ${body?.error?.message ?? putRes.statusText}`);
   }
 
   for (let i = 100; i < uris.length; i += 100) {
-    await fetch(`https://api.spotify.com/v1/playlists/${pid}/tracks`, {
+    await fetch(`https://api.spotify.com/v1/playlists/${pid}/items`, {
       method: "POST",
       headers,
       body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
