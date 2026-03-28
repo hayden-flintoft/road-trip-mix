@@ -4,6 +4,19 @@ import { useState } from "react";
 import type { GroupedPlaylist, Rule, RoundRobinRule, SpacingRule, AudioFeatureRule, SortRule } from "@/lib/grouped-playlists";
 import "./style.css";
 
+function makeTimestampSeed(): number {
+  const d = new Date();
+  return parseInt([
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+    String(d.getHours()).padStart(2, "0"),
+    String(d.getMinutes()).padStart(2, "0"),
+    String(d.getSeconds()).padStart(2, "0"),
+    String(d.getMilliseconds()).padStart(3, "0"),
+  ].join(""));
+}
+
 type Props = {
   playlist: GroupedPlaylist;
   groupPlaylists: { id: string; name: string }[];
@@ -235,7 +248,11 @@ function SortRuleItem({
                 <select
                   className="rule-item__select"
                   value={rule.method}
-                  onChange={(e) => onChange({ ...rule, method: e.target.value as SortRule["method"] })}
+                  onChange={(e) => {
+                    const method = e.target.value as SortRule["method"];
+                    const seed = method === "random-seeded" ? makeTimestampSeed() : rule.seed;
+                    onChange({ ...rule, method, seed });
+                  }}
                 >
                   <option value="random">Random</option>
                   <option value="random-seeded">Seeded</option>
@@ -244,37 +261,16 @@ function SortRuleItem({
               </label>
 
               {rule.method === "random-seeded" && (
-                <div className="rule-item__label">
+                <label className="rule-item__label">
                   Seed
-                  <div className="rule-item__seed-row">
-                    <input
-                      type="number"
-                      min={1}
-                      className="rule-item__input rule-item__input--seed"
-                      value={rule.seed ?? 1}
-                      onChange={(e) => onChange({ ...rule, seed: Math.max(1, parseInt(e.target.value) || 1) })}
-                    />
-                    <button
-                      className="rule-item__seed-now"
-                      title="Use current timestamp as seed"
-                      onClick={() => {
-                        const d = new Date();
-                        const ts = [
-                          d.getFullYear(),
-                          String(d.getMonth() + 1).padStart(2, "0"),
-                          String(d.getDate()).padStart(2, "0"),
-                          String(d.getHours()).padStart(2, "0"),
-                          String(d.getMinutes()).padStart(2, "0"),
-                          String(d.getSeconds()).padStart(2, "0"),
-                          String(d.getMilliseconds()).padStart(3, "0"),
-                        ].join("");
-                        onChange({ ...rule, seed: parseInt(ts) });
-                      }}
-                    >
-                      Now
-                    </button>
-                  </div>
-                </div>
+                  <input
+                    type="number"
+                    min={1}
+                    className="rule-item__input rule-item__input--seed"
+                    value={rule.seed ?? 1}
+                    onChange={(e) => onChange({ ...rule, seed: Math.max(1, parseInt(e.target.value) || 1) })}
+                  />
+                </label>
               )}
 
               {rule.method === "random-soft" && (
@@ -468,9 +464,10 @@ export default function RulesModal({ playlist, groupPlaylists, onSave, onClose }
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const addSortRule = (method: SortRule["method"]) => {
+    const seed = method === "random-seeded" ? makeTimestampSeed() : undefined;
     setRules((prev) => normalizeRules([
       ...prev,
-      { id: crypto.randomUUID(), type: "sort", method },
+      { id: crypto.randomUUID(), type: "sort", method, seed },
     ]));
   };
 
