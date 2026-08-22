@@ -35,7 +35,8 @@ function getPersonalKey(): { key: string; source: OpenRouterKeySource } | null {
   const raw = cookies().get(KEY_COOKIE)?.value;
   if (!raw) return null;
   try {
-    const source = (cookies().get(SOURCE_COOKIE)?.value as OpenRouterKeySource) ?? "manual";
+    const rawSource = cookies().get(SOURCE_COOKIE)?.value;
+    const source: OpenRouterKeySource = rawSource === "oauth" ? "oauth" : "manual";
     return { key: decrypt(raw), source };
   } catch {
     return null;

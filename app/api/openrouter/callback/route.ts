@@ -29,8 +29,8 @@ export async function GET(req: Request) {
       code_challenge_method: "S256",
     }),
   });
-  const data = await res.json();
-  if (!res.ok || !data.key) return redirectSettings("openrouter_error=exchange_failed");
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.key) return redirectSettings("openrouter_error=exchange_failed");
 
   saveOpenRouterKey(data.key, "oauth");
   return redirectSettings("openrouter_connected=1");
