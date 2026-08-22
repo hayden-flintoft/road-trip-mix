@@ -47,7 +47,7 @@ export default async function Header() {
               />
             )}
             <span
-              className="hidden sm:inline text-sm max-w-[10rem] truncate"
+              className="hidden sm:inline min-w-0 text-sm max-w-[10rem] truncate"
               style={{ color: "var(--text-subdued)" }}
             >
               {session.user.name}
