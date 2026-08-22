@@ -6,6 +6,9 @@ const SPOTIFY_SCOPES = [
   "playlist-modify-public",
   "playlist-modify-private",
   "user-read-playback-state",
+  "user-top-read",
+  "user-read-recently-played",
+  "user-library-read",
 ].join(" ");
 
 async function refreshAccessToken(token: Record<string, unknown>) {
