@@ -7,7 +7,7 @@ export default function LoginButton({ signedIn }: { signedIn?: boolean }) {
     return (
       <button
         onClick={() => signOut()}
-        className="px-6 py-2 rounded-full border border-white/30 text-sm hover:bg-white/10 transition-colors"
+        className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-full border border-white/30 text-sm hover:bg-white/10 transition-colors whitespace-nowrap"
       >
         Sign out
       </button>
