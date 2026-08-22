@@ -16,6 +16,13 @@ export default async function Header() {
       </Link>
       {session?.user ? (
         <div className="flex items-center gap-3">
+          <Link
+            href="/collab"
+            className="text-sm hover:opacity-80 transition-opacity"
+            style={{ color: "var(--text-subdued)" }}
+          >
+            Collaborative Mix
+          </Link>
           {session.user.image && (
             <Image
               src={session.user.image}

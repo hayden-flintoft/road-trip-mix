@@ -1,5 +1,20 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Environment variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | yes | Spotify app credentials, used both for the primary login and for connecting additional accounts. |
+| `NEXTAUTH_SECRET` | yes | Signs NextAuth session cookies and also derives the key used to encrypt connected-account tokens stored in cookies. |
+| `NEXTAUTH_URL` | yes in production | Base URL of the deployment, used for OAuth redirect URIs. |
+| `OPENROUTER_API_KEY` | optional | Enables the "Use AI to curate & order the mix" option on the Collaborative Mix page, via [OpenRouter](https://openrouter.ai). |
+
+In your Spotify app dashboard, add both `${NEXTAUTH_URL}/api/auth/callback/spotify` (NextAuth login) and `${NEXTAUTH_URL}/api/spotify-accounts/callback` (linking additional accounts) as redirect URIs.
+
+## Collaborative mixes
+
+The **Collaborative Mix** page (linked from the header once signed in) lets you connect multiple Spotify accounts — e.g. everyone going on the road trip — and automatically builds a shared playlist from each person's current favorites (recently played, top tracks, and recently saved tracks). Optionally, enable AI curation to have an LLM (via OpenRouter) pick and order the final tracklist for a requested vibe.
+
 ## Getting Started
 
 First, run the development server:
