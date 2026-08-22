@@ -1,0 +1,108 @@
+.spotify-connections__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.spotify-connections__header h3 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+}
+
+.spotify-connections__connect-btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background-color: var(--text-bright-accent);
+  color: #000;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.spotify-connections__hint {
+  color: var(--text-subdued);
+  font-size: 0.8125rem;
+  margin-bottom: 16px;
+}
+
+.spotify-connections__muted {
+  color: var(--text-subdued);
+  font-size: 0.875rem;
+}
+
+.spotify-connections__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spotify-connections__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--background-tinted-base);
+}
+
+.spotify-connections__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.spotify-connections__avatar--placeholder {
+  background-color: var(--background-tinted-highlight);
+}
+
+.spotify-connections__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.spotify-connections__name {
+  color: var(--text-base);
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spotify-connections__badge {
+  font-size: 0.6875rem;
+  color: var(--text-bright-accent);
+}
+
+.spotify-connections__badge--muted {
+  color: var(--text-subdued);
+}
+
+.spotify-connections__remove-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: var(--text-subdued);
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.spotify-connections__remove-btn:hover {
+  color: var(--text-negative);
+  border-color: var(--text-negative);
+}
+
+.spotify-connections__remove-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

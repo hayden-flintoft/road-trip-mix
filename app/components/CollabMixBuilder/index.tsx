@@ -12,26 +12,45 @@ type PublicAccount = {
   isPrimary?: boolean;
 };
 
+type PublicAppleAccount = {
+  id: string;
+  label: string;
+  connectedAt: string;
+};
+
+// A unified row for the account-selection checklist, tagging where a
+// selection id (as sent to /api/collab-mix) came from.
+type AccountRow = {
+  selectId: string; // "primary" | spotify account id | `apple:<id>`
+  displayName: string;
+  image?: string;
+  provider: "spotify" | "apple";
+  isPrimary?: boolean;
+};
+
 type MergedTrack = {
   id: string;
-  uri: string;
   name: string;
-  artists: { name: string }[];
-  album: { name: string; images: { url: string }[] };
+  artists: string[];
+  albumName: string;
+  imageUrl?: string;
   score: number;
   fromAccounts: string[];
+  spotifyUri?: string;
+  appleId?: string;
 };
 
 type MixResponse = {
   tracks: MergedTrack[];
   suggestedName?: string;
   aiNote?: string;
-  playlist?: { id: string; url: string; name: string };
+  playlist?: { id: string; url?: string; name: string };
+  unresolvedCount?: number;
   error?: string;
 };
 
 export default function CollabMixBuilder() {
-  const [accounts, setAccounts] = useState<PublicAccount[]>([]);
+  const [rows, setRows] = useState<AccountRow[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -40,26 +59,53 @@ export default function CollabMixBuilder() {
   const [useAi, setUseAi] = useState(false);
   const [vibe, setVibe] = useState("");
   const [playlistName, setPlaylistName] = useState("");
+  const [destination, setDestination] = useState<"spotify" | "apple">("spotify");
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MixResponse | null>(null);
+  const [aiConnected, setAiConnected] = useState<boolean | null>(null);
 
   const loadAccounts = () => {
     setLoadingAccounts(true);
-    fetch("/api/spotify-accounts")
-      .then((r) => r.json())
-      .then((data) => {
-        const list: PublicAccount[] = data.accounts ?? [];
-        setAccounts(list);
-        setSelected(new Set(list.map((a) => a.id)));
+    Promise.all([
+      fetch("/api/spotify-accounts").then((r) => r.json()),
+      fetch("/api/apple-accounts").then((r) => r.json()),
+    ])
+      .then(([spotifyData, appleData]) => {
+        const spotifyAccounts: PublicAccount[] = spotifyData.accounts ?? [];
+        const appleAccounts: PublicAppleAccount[] = appleData.accounts ?? [];
+
+        const list: AccountRow[] = [
+          ...spotifyAccounts.map((a) => ({
+            selectId: a.id,
+            displayName: a.displayName,
+            image: a.image,
+            provider: "spotify" as const,
+            isPrimary: a.isPrimary,
+          })),
+          ...appleAccounts.map((a) => ({
+            selectId: `apple:${a.id}`,
+            displayName: `${a.label} (Apple Music)`,
+            provider: "apple" as const,
+          })),
+        ];
+
+        setRows(list);
+        setSelected(new Set(list.map((a) => a.selectId)));
       })
       .finally(() => setLoadingAccounts(false));
   };
 
   useEffect(() => {
     loadAccounts();
+    fetch("/api/settings/openrouter")
+      .then((r) => r.json())
+      .then((data) => setAiConnected(!!data.connected))
+      .catch(() => setAiConnected(false));
   }, []);
+
+  const hasApple = rows.some((r) => r.provider === "apple");
 
   const toggleAccount = (id: string) => {
     setSelected((prev) => {
@@ -68,15 +114,6 @@ export default function CollabMixBuilder() {
       else next.add(id);
       return next;
     });
-  };
-
-  const removeAccount = async (id: string) => {
-    await fetch("/api/spotify-accounts", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    loadAccounts();
   };
 
   const buildMix = async (createPlaylist: boolean) => {
@@ -95,6 +132,7 @@ export default function CollabMixBuilder() {
           vibe,
           createPlaylist,
           playlistName,
+          destination,
         }),
       });
       const data: MixResponse = await res.json();
@@ -111,35 +149,37 @@ export default function CollabMixBuilder() {
     <section className="collab-mix">
       <h2 className="collab-mix__title">Collaborative Mix</h2>
       <p className="collab-mix__subtitle">
-        Connect everyone&rsquo;s Spotify accounts and automatically pull each person&rsquo;s current
-        favorites — recently played, top tracks, and recently saved — into one shared road-trip playlist.
+        Connect everyone&rsquo;s Spotify and Apple Music accounts and automatically pull each
+        person&rsquo;s current favorites — recently played, top tracks/heavy rotation, and recently
+        added — into one shared road-trip playlist.
       </p>
 
       {/* Connected accounts */}
       <div className="collab-mix__section">
         <div className="collab-mix__section-header">
           <h3>Connected Accounts</h3>
-          <a href="/api/spotify-accounts/connect" className="collab-mix__connect-btn">
-            + Connect Spotify account
+          <a href="/settings" className="collab-mix__connect-btn">
+            Manage connections
           </a>
         </div>
 
         {loadingAccounts ? (
           <p className="collab-mix__muted">Loading accounts…</p>
-        ) : accounts.length <= 1 ? (
+        ) : rows.length <= 1 ? (
           <p className="collab-mix__muted">
-            Just you so far — connect at least one more Spotify account to make this collaborative.
+            Just you so far — connect at least one more Spotify or Apple Music account to make this
+            collaborative.
           </p>
         ) : null}
-        {!loadingAccounts && accounts.length > 0 && (
+        {!loadingAccounts && rows.length > 0 && (
           <ul className="collab-mix__accounts">
-            {accounts.map((a) => (
-              <li key={a.id} className="collab-mix__account">
+            {rows.map((a) => (
+              <li key={a.selectId} className="collab-mix__account">
                 <label className="collab-mix__account-label">
                   <input
                     type="checkbox"
-                    checked={selected.has(a.id)}
-                    onChange={() => toggleAccount(a.id)}
+                    checked={selected.has(a.selectId)}
+                    onChange={() => toggleAccount(a.selectId)}
                   />
                   {a.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -149,15 +189,6 @@ export default function CollabMixBuilder() {
                   )}
                   <span>{a.displayName}</span>
                 </label>
-                {!a.isPrimary && (
-                  <button
-                    className="collab-mix__remove-btn"
-                    title="Disconnect"
-                    onClick={() => removeAccount(a.id)}
-                  >
-                    ×
-                  </button>
-                )}
               </li>
             ))}
           </ul>
@@ -199,10 +230,30 @@ export default function CollabMixBuilder() {
           </label>
         </div>
 
+        {hasApple && (
+          <label className="collab-mix__field" style={{ marginBottom: 12 }}>
+            Create playlist on
+            <select value={destination} onChange={(e) => setDestination(e.target.value as "spotify" | "apple")}>
+              <option value="spotify">Spotify</option>
+              <option value="apple">Apple Music</option>
+            </select>
+          </label>
+        )}
+
         <label className="collab-mix__checkbox-row">
           <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />
           Use AI (OpenRouter) to curate &amp; order the mix
         </label>
+
+        {useAi && aiConnected === false && (
+          <p className="collab-mix__muted">
+            No OpenRouter connection yet —{" "}
+            <a href="/settings" style={{ textDecoration: "underline" }}>
+              connect one in Settings
+            </a>{" "}
+            first.
+          </p>
+        )}
 
         {useAi && (
           <label className="collab-mix__field collab-mix__field--wide">
@@ -230,7 +281,7 @@ export default function CollabMixBuilder() {
           disabled={busy || selected.size === 0 || !result}
           onClick={() => buildMix(true)}
         >
-          Create on Spotify
+          Create on {destination === "apple" ? "Apple Music" : "Spotify"}
         </button>
       </div>
 
@@ -238,10 +289,22 @@ export default function CollabMixBuilder() {
 
       {result?.playlist && (
         <p className="collab-mix__success">
-          Created &ldquo;{result.playlist.name}&rdquo; —{" "}
-          <a href={result.playlist.url} target="_blank" rel="noreferrer">
-            open in Spotify
-          </a>
+          Created &ldquo;{result.playlist.name}&rdquo;
+          {result.playlist.url && (
+            <>
+              {" — "}
+              <a href={result.playlist.url} target="_blank" rel="noreferrer">
+                open in Spotify
+              </a>
+            </>
+          )}
+          {!!result.unresolvedCount && (
+            <span className="collab-mix__muted">
+              {" "}
+              ({result.unresolvedCount} track{result.unresolvedCount === 1 ? "" : "s"} couldn&rsquo;t be
+              matched on this platform)
+            </span>
+          )}
         </p>
       )}
 
@@ -251,15 +314,13 @@ export default function CollabMixBuilder() {
         <ol className="collab-mix__tracklist">
           {result.tracks.map((t) => (
             <li key={t.id} className="collab-mix__track">
-              {t.album.images?.[t.album.images.length - 1]?.url && (
+              {t.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={t.album.images[t.album.images.length - 1].url} alt="" />
+                <img src={t.imageUrl} alt="" />
               )}
               <div className="collab-mix__track-info">
                 <span className="collab-mix__track-name">{t.name}</span>
-                <span className="collab-mix__track-artists">
-                  {t.artists.map((a) => a.name).join(", ")}
-                </span>
+                <span className="collab-mix__track-artists">{t.artists.join(", ")}</span>
               </div>
               <span className="collab-mix__track-from">{t.fromAccounts.join(", ")}</span>
             </li>

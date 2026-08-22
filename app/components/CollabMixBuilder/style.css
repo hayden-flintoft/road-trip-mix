@@ -128,7 +128,8 @@
   grid-column: 1 / -1;
 }
 
-.collab-mix__field input {
+.collab-mix__field input,
+.collab-mix__field select {
   padding: 8px 10px;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -138,7 +139,8 @@
   outline: none;
 }
 
-.collab-mix__field input:focus {
+.collab-mix__field input:focus,
+.collab-mix__field select:focus {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
