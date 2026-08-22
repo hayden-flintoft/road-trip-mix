@@ -47,10 +47,10 @@ export async function generateAiMix(
   candidates: CandidateTrack[],
   vibe: string,
   targetCount = 20,
-  model = DEFAULT_MODEL
+  model = DEFAULT_MODEL,
+  apiKey?: string | null
 ): Promise<AiMixResult> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
+  if (!apiKey) throw new Error("No OpenRouter API key configured. Connect one in Settings.");
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",

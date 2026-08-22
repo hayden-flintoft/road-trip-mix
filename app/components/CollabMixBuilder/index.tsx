@@ -44,6 +44,7 @@ export default function CollabMixBuilder() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MixResponse | null>(null);
+  const [aiConnected, setAiConnected] = useState<boolean | null>(null);
 
   const loadAccounts = () => {
     setLoadingAccounts(true);
@@ -59,6 +60,10 @@ export default function CollabMixBuilder() {
 
   useEffect(() => {
     loadAccounts();
+    fetch("/api/settings/openrouter")
+      .then((r) => r.json())
+      .then((data) => setAiConnected(!!data.connected))
+      .catch(() => setAiConnected(false));
   }, []);
 
   const toggleAccount = (id: string) => {
@@ -68,15 +73,6 @@ export default function CollabMixBuilder() {
       else next.add(id);
       return next;
     });
-  };
-
-  const removeAccount = async (id: string) => {
-    await fetch("/api/spotify-accounts", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    loadAccounts();
   };
 
   const buildMix = async (createPlaylist: boolean) => {
@@ -119,8 +115,8 @@ export default function CollabMixBuilder() {
       <div className="collab-mix__section">
         <div className="collab-mix__section-header">
           <h3>Connected Accounts</h3>
-          <a href="/api/spotify-accounts/connect" className="collab-mix__connect-btn">
-            + Connect Spotify account
+          <a href="/settings" className="collab-mix__connect-btn">
+            Manage connections
           </a>
         </div>
 
@@ -149,15 +145,6 @@ export default function CollabMixBuilder() {
                   )}
                   <span>{a.displayName}</span>
                 </label>
-                {!a.isPrimary && (
-                  <button
-                    className="collab-mix__remove-btn"
-                    title="Disconnect"
-                    onClick={() => removeAccount(a.id)}
-                  >
-                    ×
-                  </button>
-                )}
               </li>
             ))}
           </ul>
@@ -203,6 +190,16 @@ export default function CollabMixBuilder() {
           <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} />
           Use AI (OpenRouter) to curate &amp; order the mix
         </label>
+
+        {useAi && aiConnected === false && (
+          <p className="collab-mix__muted">
+            No OpenRouter connection yet —{" "}
+            <a href="/settings" style={{ textDecoration: "underline" }}>
+              connect one in Settings
+            </a>{" "}
+            first.
+          </p>
+        )}
 
         {useAi && (
           <label className="collab-mix__field collab-mix__field--wide">

@@ -23,6 +23,13 @@ export default async function Header() {
           >
             Collaborative Mix
           </Link>
+          <Link
+            href="/settings"
+            className="text-sm hover:opacity-80 transition-opacity"
+            style={{ color: "var(--text-subdued)" }}
+          >
+            Settings
+          </Link>
           {session.user.image && (
             <Image
               src={session.user.image}

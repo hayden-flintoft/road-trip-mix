@@ -5,6 +5,7 @@ import { getFreshAccounts } from "@/lib/spotify-accounts";
 import { getAccountFavorites } from "@/lib/spotify-library";
 import { mergeFavorites, type MergedTrack } from "@/lib/collab-mix";
 import { generateAiMix } from "@/lib/openrouter";
+import { resolveOpenRouterKey } from "@/lib/openrouter-key";
 
 type RequestBody = {
   accountIds?: string[];
@@ -74,7 +75,9 @@ export async function POST(req: Request) {
           fromAccounts: t.fromAccounts,
         })),
         body.vibe ?? "",
-        targetCount
+        targetCount,
+        undefined,
+        resolveOpenRouterKey()
       );
       const byId = new Map(merged.map((t) => [t.id, t]));
       const ordered = aiResult.trackIds.map((id) => byId.get(id)).filter((t): t is MergedTrack => !!t);
