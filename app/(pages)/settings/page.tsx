@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import LoginButton from "@/app/components/login-button";
 import SpotifyConnections from "@/app/components/SpotifyConnections";
+import AppleMusicConnection from "@/app/components/AppleMusicConnection";
 import OpenRouterConnection from "@/app/components/OpenRouterConnection";
 
 export default async function SettingsPage() {
@@ -23,6 +24,10 @@ export default async function SettingsPage() {
 
           <div className="pb-6 mb-6 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
             <SpotifyConnections />
+          </div>
+
+          <div className="pb-6 mb-6 border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+            <AppleMusicConnection />
           </div>
 
           <OpenRouterConnection />

@@ -1,0 +1,99 @@
+.apple-music-connection h3 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-subdued);
+  margin-bottom: 4px;
+}
+
+.apple-music-connection__hint {
+  color: var(--text-subdued);
+  font-size: 0.8125rem;
+  margin-bottom: 16px;
+  max-width: 560px;
+}
+
+.apple-music-connection__muted {
+  color: var(--text-subdued);
+  font-size: 0.875rem;
+}
+
+.apple-music-connection__muted code {
+  background-color: var(--background-tinted-base);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.8em;
+}
+
+.apple-music-connection__error {
+  color: var(--text-negative);
+  font-size: 0.8125rem;
+  margin: 8px 0;
+}
+
+.apple-music-connection__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.apple-music-connection__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--background-tinted-base);
+  color: var(--text-base);
+  font-size: 0.875rem;
+}
+
+.apple-music-connection__item button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: var(--text-subdued);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.apple-music-connection__item button:hover {
+  color: var(--text-negative);
+  border-color: var(--text-negative);
+}
+
+.apple-music-connection__connect-row {
+  display: flex;
+  gap: 8px;
+}
+
+.apple-music-connection__connect-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: var(--background-base);
+  color: var(--text-base);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.apple-music-connection__connect-btn {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: none;
+  background-color: var(--text-bright-accent);
+  color: #000;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.apple-music-connection__connect-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

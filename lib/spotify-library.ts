@@ -2,16 +2,7 @@
 // top tracks, and recently saved — and turns them into a ranked list of
 // "current favorites" per account, which the collab-mix builder merges.
 
-export type LibraryTrack = {
-  id: string;
-  uri: string;
-  name: string;
-  artists: { name: string }[];
-  album: { name: string; images: { url: string }[] };
-  duration_ms: number;
-};
-
-export type ScoredTrack = LibraryTrack & { score: number };
+import type { LibraryTrack, ScoredTrack } from "./library-track";
 
 async function spotifyGet(accessToken: string, path: string) {
   const res = await fetch(`https://api.spotify.com/v1${path}`, {
@@ -23,13 +14,16 @@ async function spotifyGet(accessToken: string, path: string) {
 
 function simplify(track: Record<string, unknown>): LibraryTrack | null {
   if (!track?.id) return null;
+  const album = track.album as { name?: string; images?: { url: string }[] } | undefined;
   return {
+    provider: "spotify",
     id: track.id as string,
-    uri: track.uri as string,
+    spotifyUri: track.uri as string,
     name: track.name as string,
-    artists: (track.artists as { name: string }[]) ?? [],
-    album: (track.album as LibraryTrack["album"]) ?? { name: "", images: [] },
-    duration_ms: (track.duration_ms as number) ?? 0,
+    artists: ((track.artists as { name: string }[]) ?? []).map((a) => a.name),
+    albumName: album?.name ?? "",
+    imageUrl: album?.images?.[0]?.url,
+    durationMs: (track.duration_ms as number) ?? 0,
   };
 }
 
@@ -82,4 +76,17 @@ export async function getAccountFavorites(accessToken: string): Promise<ScoredTr
   recentlySaved.forEach(({ track, addedAt }) => bump(track, 2.5 * recencyWeight(addedAt)));
 
   return Array.from(scored.values()).sort((a, b) => b.score - a.score);
+}
+
+// Resolves a best-effort Spotify track URI for a track sourced from another
+// provider, so a collaborative mix can be created on Spotify even when some
+// favorites came in from Apple Music.
+export async function searchSpotifyTrack(
+  accessToken: string,
+  name: string,
+  artist: string
+): Promise<string | null> {
+  const q = encodeURIComponent(`track:${name} artist:${artist}`);
+  const data = await spotifyGet(accessToken, `/search?q=${q}&type=track&limit=1`);
+  return data?.tracks?.items?.[0]?.uri ?? null;
 }
